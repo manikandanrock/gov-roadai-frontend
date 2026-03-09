@@ -253,4 +253,116 @@ button, .upload-btn, .clear-btn {
   .portal-card div {
     text-align: center !important;
   }
+
+  /* ================= Landing Page ================= */
+
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 40px 20px;
+  text-align: center;
 }
+
+/* Header */
+
+.landing-header {
+  max-width: 700px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.brand-logo {
+  width: 60px;
+}
+
+.brand-title {
+  font-size: 3rem;
+  font-weight: 800;
+}
+
+.brand-subtitle {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.project-badge {
+  margin-top: 20px;
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Portal Cards */
+
+.portal-container {
+  display: flex;
+  gap: 30px;
+  margin-top: 60px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.portal-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 360px;
+  padding: 25px;
+  text-decoration: none;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  transition: all 0.25s ease;
+}
+
+.portal-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+.portal-icon {
+  font-size: 2.5rem;
+}
+
+.portal-content h3 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.portal-content p {
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* Footer */
+
+.landing-footer {
+  margin-top: 60px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  max-width: 700px;
+}
+
+.dev-names {
+  font-weight: 700;
+}
+
+.dept,
+.college {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
