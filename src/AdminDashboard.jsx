@@ -20,6 +20,9 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [budgetLimit, setBudgetLimit] = useState(1500000);
   const [viewMode, setViewMode] = useState('map');
+  
+  // NEW: State to hold the currently expanded high-res image
+  const [expandedImage, setExpandedImage] = useState(null);
 
   const fetchDashboardData = async () => {
     try {
@@ -171,11 +174,13 @@ const AdminDashboard = () => {
                               {isCitizen ? "📱 Citizen Report" : "🎥 Dashcam Scan"}
                             </strong>
                             
-                            {/* AI RENDERED IMAGE IN POPUP */}
+                            {/* POPUP IMAGE: Now clickable */}
                             {p.image_data && (
                               <img 
                                 src={p.image_data} 
                                 alt="AI Detection" 
+                                className="clickable-thumbnail"
+                                onClick={() => setExpandedImage(p.image_data)}
                                 style={{ width: '100%', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '10px' }} 
                               />
                             )}
@@ -218,12 +223,14 @@ const AdminDashboard = () => {
                       const isFunded = infraData.optimized_plan.some(op => op.id === p.id);
                       return (
                         <tr key={p.id}>
-                          {/* AI RENDERED THUMBNAIL IN TABLE */}
+                          {/* TABLE IMAGE: Now clickable with hover zoom effect */}
                           <td>
                             {p.image_data ? (
                               <img 
                                 src={p.image_data} 
                                 alt="Defect" 
+                                className="clickable-thumbnail"
+                                onClick={() => setExpandedImage(p.image_data)}
                                 style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} 
                               />
                             ) : (
@@ -277,6 +284,17 @@ const AdminDashboard = () => {
           </div>
         </aside>
       </main>
+
+      {/* NEW: LIGHTBOX OVERLAY COMPONENT */}
+      {expandedImage && (
+        <div className="lightbox-overlay" onClick={() => setExpandedImage(null)}>
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <button className="lightbox-close" onClick={() => setExpandedImage(null)}>✖</button>
+            <img src={expandedImage} alt="Expanded AI Detection" />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
