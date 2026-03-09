@@ -236,10 +236,20 @@ button, .upload-btn, .clear-btn {
   
   /* Landing page overrides for mobile */
   .portal-card {
-    width: 100% !important; /* Overrides React inline styles */
-    flex-direction: column !important;
-    text-align: center !important;
-  }
+  display: flex;
+  flex-direction: column;   /* FIXED */
+  align-items: center;
+  gap: 10px;
+
+  padding: 2rem 3rem;
+  background-color: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
+}
   .portal-card div {
     text-align: center !important;
   }
