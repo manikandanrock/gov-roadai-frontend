@@ -6,63 +6,49 @@ import "./App.css";
 
 const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
-/* Resize map when layout changes */
-const MapResizer = () => {
+/* Fix leaflet resizing */
+const MapFix = () => {
   const map = useMap();
-
   useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 300);
-
-    return () => clearTimeout(timer);
+    setTimeout(() => map.invalidateSize(), 200);
   }, [map]);
-
   return null;
 };
 
 const AdminDashboard = () => {
-  const [infraData, setInfraData] = useState({
+  const [data, setData] = useState({
     detections: [],
-    optimized_plan: [],
     summary: { total_cost: 0, total_detected: 0 }
   });
 
   const [loading, setLoading] = useState(false);
-  const [budgetLimit, setBudgetLimit] = useState(1500000);
-  const [viewMode, setViewMode] = useState("map");
-  const [expandedImage, setExpandedImage] = useState(null);
+  const [budget, setBudget] = useState(1500000);
+  const [view, setView] = useState("map");
+  const [image, setImage] = useState(null);
 
-  /* Fetch Dashboard Data */
-  const fetchDashboardData = async () => {
+  /* API Fetch */
+  const fetchData = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/dashboard-data?budget=${budgetLimit || 0}`);
+      const res = await fetch(`${API_BASE_URL}/dashboard-data?budget=${budget}`);
+      if (!res.ok) return;
 
-      if (!res.ok) {
-        throw new Error("API error");
-      }
-
-      const data = await res.json();
-      setInfraData(data);
+      const json = await res.json();
+      setData(json);
 
     } catch (err) {
-      console.error("Gov-RoadAI API Error:", err);
+      console.error("API Error:", err);
     }
   };
 
-  /* Auto refresh dashboard */
   useEffect(() => {
-    fetchDashboardData();
-
-    const interval = setInterval(fetchDashboardData, 10000);
-
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, [budgetLimit]);
+  }, [budget]);
 
-  /* Upload infrastructure video */
-  const handleInfraAnalysis = async (e) => {
+  /* Upload video */
+  const handleUpload = async (e) => {
     const file = e.target.files[0];
-
     if (!file) return;
 
     setLoading(true);
@@ -71,48 +57,31 @@ const AdminDashboard = () => {
     formData.append("file", file);
 
     try {
-      await fetch(`${API_BASE_URL}/analyze-infrastructure?budget=${budgetLimit || 0}`, {
+      await fetch(`${API_BASE_URL}/analyze-infrastructure?budget=${budget}`, {
         method: "POST",
         body: formData
       });
 
-      fetchDashboardData();
-
-    } catch (err) {
-      alert("Analysis failed.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-      e.target.value = null;
+      fetchData();
+    } catch {
+      alert("Upload failed");
     }
+
+    setLoading(false);
   };
 
-  /* Reset Database */
-  const handleClearDatabase = async () => {
-    const confirmReset = window.confirm("Format database?");
+  /* Reset database */
+  const resetSystem = async () => {
+    if (!window.confirm("Reset system database?")) return;
 
-    if (!confirmReset) return;
-
-    setLoading(true);
-
-    try {
-      await fetch(`${API_BASE_URL}/clear-database`, {
-        method: "DELETE"
-      });
-
-      fetchDashboardData();
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    await fetch(`${API_BASE_URL}/clear-database`, { method: "DELETE" });
+    fetchData();
   };
 
-  /* Count high risk defects */
-  const highRiskCount = useMemo(() => {
-    return infraData.detections.filter(d => d.risk_level === "High").length;
-  }, [infraData.detections]);
+  const highRisk = useMemo(
+    () => data.detections.filter(d => d.risk_level === "High").length,
+    [data.detections]
+  );
 
   return (
     <div className="admin-layout">
@@ -121,340 +90,232 @@ const AdminDashboard = () => {
       <aside className="admin-sidebar">
 
         <div className="sidebar-brand">
-          <img
-            src="/favicon.svg"
-            alt="GovRoadAI Logo"
-            style={{ width: "32px", height: "32px", borderRadius: "8px" }}
-          />
-          <h2>Gov-RoadAI</h2>
+          <img src="/favicon.svg" alt="logo" />
+          <h2>GovRoadAI</h2>
         </div>
 
         <nav className="sidebar-nav">
           <Link to="/" className="nav-item">🏠 Home</Link>
-          <div className="nav-item active">📊 Analytics</div>
-          <div className="nav-item">🛰️ Satellite</div>
-          <div className="nav-item">⚙️ System</div>
+          <div className="nav-item active">📊 Dashboard</div>
+          <div className="nav-item">🛰 Satellite</div>
+          <div className="nav-item">⚙ System</div>
         </nav>
 
         <div className="sidebar-footer">
-          <button
-            className="btn-clear"
-            onClick={handleClearDatabase}
-            style={{
-              width: "100%",
-              background: "rgba(239,68,68,0.1)",
-              color: "#ef4444",
-              border: "1px solid #ef4444",
-              padding: "0.75rem",
-              borderRadius: "12px",
-              fontWeight: "700",
-              cursor: "pointer"
-            }}
-          >
-            🗑 Reset System
+          <button className="btn-danger" onClick={resetSystem}>
+            Reset Database
           </button>
         </div>
 
       </aside>
 
-      {/* MAIN PANEL */}
+
+      {/* MAIN DASHBOARD */}
       <main className="admin-main">
 
-        {/* HEADER */}
-        <header className="admin-header">
+        {/* TOP BAR */}
+        <div className="dashboard-topbar">
 
-          <div className="header-title">
-            <h1>Infrastructure Command Center</h1>
-            <p style={{ color: "#64748b", fontWeight: "500" }}>
-              Real-time Road Asset Monitoring & AI Budgeting
-            </p>
+          <div>
+            <h1>AI Infrastructure Command Center</h1>
+            <p>Real-time road monitoring powered by computer vision</p>
           </div>
 
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="topbar-controls">
 
-            {/* Budget Input */}
-            <div style={{ textAlign: "right" }}>
-              <label style={{
-                display: "block",
-                fontSize: "0.7rem",
-                fontWeight: "800",
-                color: "#64748b",
-                textTransform: "uppercase"
-              }}>
-                Current Budget
-              </label>
-
+            <div className="budget-box">
+              <label>Budget</label>
               <input
                 type="number"
-                value={budgetLimit}
-                onChange={(e) => setBudgetLimit(Number(e.target.value))}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  fontSize: "1.2rem",
-                  fontWeight: "800",
-                  textAlign: "right",
-                  color: "#4f46e5",
-                  width: "120px"
-                }}
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
               />
             </div>
 
-            {/* Upload Button */}
-            <label style={{
-              background: "#4f46e5",
-              color: "white",
-              padding: "0.8rem 1.5rem",
-              borderRadius: "14px",
-              fontWeight: "700",
-              cursor: "pointer",
-              boxShadow: "0 10px 15px rgba(79,70,229,0.3)"
-            }}>
-              {loading ? "⌛ Processing..." : "📁 Upload Dashcam"}
-
+            <label className="upload-btn">
+              {loading ? "Processing..." : "Upload Dashcam"}
               <input
                 type="file"
                 accept="video/*"
-                onChange={handleInfraAnalysis}
+                onChange={handleUpload}
                 hidden
               />
             </label>
 
           </div>
 
-        </header>
+        </div>
+
 
         {/* STATS */}
-        <section className="stats-grid">
+        <div className="stats-grid">
 
           <div className="stat-card">
-            <span className="stat-label">Total Defects</span>
-            <span className="stat-value">
-              {infraData.summary?.total_detected || 0}
-            </span>
+            <h4>Total Defects</h4>
+            <span>{data.summary.total_detected}</span>
           </div>
 
-          <div className="stat-card urgent">
-            <span className="stat-label">High Risk Areas</span>
-            <span className="stat-value">{highRiskCount}</span>
+          <div className="stat-card danger">
+            <h4>High Risk</h4>
+            <span>{highRisk}</span>
           </div>
 
           <div className="stat-card success">
-            <span className="stat-label">Allocated Spend</span>
-            <span className="stat-value">
-              ₹{infraData.summary?.total_cost?.toLocaleString() || 0}
-            </span>
+            <h4>Budget Allocation</h4>
+            <span>₹{data.summary.total_cost.toLocaleString()}</span>
           </div>
 
-        </section>
+        </div>
+
+
+        {/* VIEW SWITCH */}
+        <div className="panel-header">
+
+          <div className="tabs">
+            <button
+              className={view === "map" ? "active" : ""}
+              onClick={() => setView("map")}
+            >
+              Map Intelligence
+            </button>
+
+            <button
+              className={view === "table" ? "active" : ""}
+              onClick={() => setView("table")}
+            >
+              Data Logs
+            </button>
+          </div>
+
+          <div className="live-status">
+            ● Live System Active
+          </div>
+
+        </div>
+
 
         {/* MAIN PANEL */}
-        <div className="content-panel">
+        <div className="dashboard-panel">
 
-          <div className="panel-top">
+          {view === "map" ? (
 
-            <div className="tabs">
-              <button
-                className={viewMode === "map" ? "active" : ""}
-                onClick={() => setViewMode("map")}
-              >
-                Spatial Intelligence
-              </button>
+            <MapContainer
+              center={[13.0827, 80.2707]}
+              zoom={12}
+              style={{ height: "100%", width: "100%" }}
+            >
 
-              <button
-                className={viewMode === "table" ? "active" : ""}
-                onClick={() => setViewMode("table")}
-              >
-                Analytical Logs
-              </button>
-            </div>
+              <MapFix />
 
-            <div style={{
-              color: "#10b981",
-              fontWeight: "700",
-              fontSize: "0.9rem"
-            }}>
-              ● Live Data Sync Active
-            </div>
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              />
 
-          </div>
+              {data.detections.map(p => (
 
-          {/* MAP VIEW */}
-          <div style={{ flex: 1, position: "relative" }}>
+                <CircleMarker
+                  key={p.id}
+                  center={[p.lat, p.lng]}
+                  radius={10}
+                  pathOptions={{
+                    color: p.risk_level === "High" ? "#ef4444" : "#f59e0b",
+                    fillOpacity: 0.7
+                  }}
+                >
 
-            {viewMode === "map" ? (
+                  <Popup>
 
-              <MapContainer
-                center={[13.0827, 80.2707]}
-                zoom={12}
-                style={{ height: "100%", width: "100%" }}
-              >
+                    <div className="popup-card">
 
-                <MapResizer />
+                      {p.image_data && (
+                        <img
+                          src={p.image_data}
+                          alt="defect"
+                          onClick={() => setImage(p.image_data)}
+                        />
+                      )}
 
-                <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                />
+                      <strong>ID:</strong> {p.id}
 
-                {infraData.detections.map((p) => (
+                      <br />
 
-                  <CircleMarker
-                    key={p.id}
-                    center={[p.lat, p.lng]}
-                    radius={10}
-                    pathOptions={{
-                      color: p.risk_level === "High" ? "#ef4444" : "#f59e0b",
-                      fillOpacity: 0.7
-                    }}
-                  >
+                      <strong>Cost:</strong> ₹{p.cost_inr}
 
-                    <Popup>
+                    </div>
 
-                      <div style={{ width: "200px" }}>
+                  </Popup>
 
-                        {p.image_data && (
+                </CircleMarker>
+
+              ))}
+
+            </MapContainer>
+
+          ) : (
+
+            <div className="table-wrapper">
+
+              <table className="modern-table">
+
+                <thead>
+                  <tr>
+                    <th>Image</th>
+                    <th>ID</th>
+                    <th>Source</th>
+                    <th>Severity</th>
+                    <th>Cost</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+
+                  {data.detections.map(p => (
+
+                    <tr key={p.id}>
+
+                      <td>
+                        {p.image_data ? (
                           <img
                             src={p.image_data}
-                            alt="Road defect"
-                            onClick={() => setExpandedImage(p.image_data)}
-                            style={{
-                              width: "100%",
-                              borderRadius: "12px",
-                              cursor: "pointer",
-                              marginBottom: "10px"
-                            }}
+                            className="table-thumb"
+                            alt="defect"
+                            onClick={() => setImage(p.image_data)}
                           />
-                        )}
+                        ) : "Video"}
+                      </td>
 
-                        <p style={{ fontWeight: "800", margin: 0 }}>
-                          ID: {p.id}
-                        </p>
+                      <td>{p.id}</td>
 
-                        <p style={{ fontWeight: "700", color: "#4f46e5" }}>
-                          Cost: ₹{p.cost_inr}
-                        </p>
+                      <td>{p.source}</td>
 
-                      </div>
+                      <td className={p.risk_level === "High" ? "danger" : "warning"}>
+                        {p.risk_level}
+                      </td>
 
-                    </Popup>
+                      <td>₹{p.cost_inr}</td>
 
-                  </CircleMarker>
-
-                ))}
-
-              </MapContainer>
-
-            ) : (
-
-              <div style={{ padding: "1rem" }}>
-
-                <table className="modern-table">
-
-                  <thead>
-                    <tr>
-                      <th>Visual Proof</th>
-                      <th>Defect ID</th>
-                      <th>Source</th>
-                      <th>Severity</th>
-                      <th>Est. Cost</th>
                     </tr>
-                  </thead>
 
-                  <tbody>
+                  ))}
 
-                    {infraData.detections.map((p) => (
+                </tbody>
 
-                      <tr key={p.id}>
+              </table>
 
-                        <td>
-                          {p.image_data ? (
-                            <img
-                              src={p.image_data}
-                              alt="road defect"
-                              className="table-thumb"
-                              onClick={() => setExpandedImage(p.image_data)}
-                            />
-                          ) : "🎥"}
-                        </td>
+            </div>
 
-                        <td>{p.id}</td>
-
-                        <td>
-                          <span className="source-badge">
-                            {p.source}
-                          </span>
-                        </td>
-
-                        <td style={{
-                          color: p.risk_level === "High"
-                            ? "#ef4444"
-                            : "#f59e0b"
-                        }}>
-                          {p.risk_level}
-                        </td>
-
-                        <td>₹{p.cost_inr?.toLocaleString()}</td>
-
-                      </tr>
-
-                    ))}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            )}
-
-          </div>
+          )}
 
         </div>
 
       </main>
 
-      {/* IMAGE LIGHTBOX */}
-      {expandedImage && (
 
-        <div
-          className="image-lightbox"
-          onClick={() => setExpandedImage(null)}
-        >
-
-          <div
-            className="lightbox-wrap"
-            onClick={(e) => e.stopPropagation()}
-            style={{ position: "relative" }}
-          >
-
-            <img
-              src={expandedImage}
-              alt="Analysis Result"
-            />
-
-            <button
-              onClick={() => setExpandedImage(null)}
-              style={{
-                position: "absolute",
-                top: "-15px",
-                right: "-15px",
-                background: "#ef4444",
-                color: "white",
-                border: "none",
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}
-            >
-              ✕
-            </button>
-
-          </div>
-
+      {/* IMAGE VIEWER */}
+      {image && (
+        <div className="image-lightbox" onClick={() => setImage(null)}>
+          <img src={image} alt="defect large" />
         </div>
-
       )}
 
     </div>
