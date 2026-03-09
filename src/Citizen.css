@@ -1,0 +1,141 @@
+:root {
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --bg-main: #f1f5f9;
+  --card-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --success-bg: #d1fae5;
+  --success-text: #065f46;
+  --error-bg: #fee2e2;
+  --error-text: #991b1b;
+  --info-bg: #e0e7ff;
+  --info-text: #4338ca;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+.citizen-container {
+  padding: 1.5rem;
+  max-width: 480px; /* Keeps it looking like a mobile app even on desktop */
+  margin: 0 auto;
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brand-header {
+  margin-bottom: 2.5rem;
+}
+
+.brand-header h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-main);
+  letter-spacing: -0.025em;
+}
+
+.brand-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.upload-card {
+  background: var(--card-bg);
+  padding: 2.5rem 1.5rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+
+.upload-card h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.35rem;
+  color: var(--text-main);
+}
+
+.upload-card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+/* Large, tap-friendly button for mobile users */
+.capture-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background-color: var(--primary);
+  color: white;
+  padding: 1.125rem 1.5rem;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+}
+
+.capture-btn:active {
+  background-color: var(--primary-hover);
+  transform: scale(0.97);
+}
+
+.capture-btn.disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Status Message Animations & Colors */
+.status-message {
+  padding: 1.25rem;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.status-message.info { background-color: var(--info-bg); color: var(--info-text); }
+.status-message.success { background-color: var(--success-bg); color: var(--success-text); }
+.status-message.error { background-color: var(--error-bg); color: var(--error-text); }
+
+/* Loading Spinner */
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
