@@ -15,7 +15,6 @@ const CitizenApp = () => {
 
   const fetchAddress = async (lat, lng) => {
     try {
-      // FORCES ENGLISH LANGUAGE & STREET LEVEL ZOOM
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=en`);
       const data = await response.json();
       
@@ -58,7 +57,6 @@ const CitizenApp = () => {
           setStatus({ type: "", text: "" }); 
         },
         (error) => {
-          // STRICT GPS ERROR HANDLING
           let errorMsg = "Could not get your location.";
           switch(error.code) {
             case error.PERMISSION_DENIED: errorMsg = "GPS Denied. Please enable location permissions in your browser."; break;
@@ -113,6 +111,9 @@ const CitizenApp = () => {
     formData.append("kg_asphalt", aiResults.total_kg);
     formData.append("cost_inr", aiResults.total_cost);
     formData.append("risk_level", aiResults.severity);
+    
+    // --> THIS IS THE CRITICAL LINE THAT SENDS THE IMAGE TO THE BACKEND <--
+    formData.append("image_data", aiResults.annotated_image); 
 
     try {
       const response = await fetch(`${API_BASE_URL}/submit-citizen-report`, { method: "POST", body: formData });
