@@ -41,27 +41,36 @@ body {
 .nav-brand h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
 .badge { background: #e0e7ff; color: #4338ca; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.875rem; font-weight: 600; }
 
-.nav-actions { display: flex; align-items: center; gap: 1.5rem; }
+.nav-actions { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
 .budget-control { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
 .budget-control input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; width: 150px; outline: none; }
 
-button, .upload-btn {
+button, .upload-btn, .clear-btn {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   border: none;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-block;
+  text-align: center;
 }
 .upload-btn { background: var(--primary); color: white; }
 .upload-btn:hover { background: var(--primary-hover); }
 .export-btn { background: var(--success); color: white; }
 .export-btn:disabled { background: #a7f3d0; cursor: not-allowed; }
 
+/* Clear Button */
+.clear-btn { background: #ef4444; color: white; }
+.clear-btn:hover:not(:disabled) { background: #dc2626; }
+.clear-btn:disabled { background: #fca5a5; cursor: not-allowed; }
+.upload-btn.disabled { background: #93c5fd; cursor: not-allowed; }
+
 /* --- KPI Header --- */
 .kpi-header {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Changed from fixed 4 columns to auto-fit for dynamic screen wrapping */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.5rem;
   padding: 1.5rem 2rem;
 }
@@ -113,13 +122,27 @@ button, .upload-btn {
 .view-toggles button { background: transparent; border: 1px solid var(--border); color: var(--text-muted); margin-left: 0.5rem; }
 .view-toggles button.active { background: var(--bg-main); color: var(--text-main); border-color: #cbd5e1; }
 
-.panel-body { position: relative; flex: 1; min-height: 400px; overflow: hidden; }
+/* Ensure the map container fills the body completely */
+.panel-body { 
+  position: relative; 
+  flex: 1; 
+  min-height: 400px; 
+  display: flex; 
+  flex-direction: column; 
+  overflow: hidden; 
+}
+.leaflet-container {
+  height: 100% !important;
+  width: 100%;
+  flex: 1;
+  z-index: 1;
+}
 
 /* --- Table View --- */
 .table-wrapper { height: 100%; overflow-y: auto; padding: 0 1.5rem; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 .data-table th, .data-table td { padding: 1rem 0.5rem; border-bottom: 1px solid var(--border); }
-.data-table th { position: sticky; top: 0; background: var(--card-bg); font-weight: 600; color: var(--text-muted); }
+.data-table th { position: sticky; top: 0; background: var(--card-bg); font-weight: 600; color: var(--text-muted); z-index: 2; }
 .text-danger { color: var(--danger); font-weight: 600; }
 .text-warning { color: var(--warning); font-weight: 600; }
 
@@ -139,23 +162,7 @@ button, .upload-btn {
 .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* Ensure the map container fills the body completely */
-.panel-body { 
-  position: relative; 
-  flex: 1; 
-  min-height: 400px; 
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden; 
-}
-.leaflet-container {
-  height: 100% !important;
-  width: 100%;
-  flex: 1;
-  z-index: 1;
-}
-
-/* Landing Page Cards */
+/* --- Landing Page Cards --- */
 .portal-card {
   display: flex; flexDirection: column; align-items: center; gap: 10px;
   padding: 2rem 3rem; background-color: #ffffff; color: #0f172a; 
@@ -170,8 +177,70 @@ button, .upload-btn {
   border-color: #cbd5e1;
 }
 
-/* Clear Button */
-.clear-btn { background: #ef4444; color: white; }
-.clear-btn:hover:not(:disabled) { background: #dc2626; }
-.clear-btn:disabled { background: #fca5a5; cursor: not-allowed; }
-.upload-btn.disabled { background: #93c5fd; cursor: not-allowed; }
+/* ========================================================= */
+/* --- MEDIA QUERIES: Laptop & Mobile Responsiveness ---     */
+/* ========================================================= */
+
+/* Small Laptops & Tablets (1024px and below) */
+@media (max-width: 1024px) {
+  .main-content {
+    grid-template-columns: 1fr; /* Stacks the sidebar UNDER the map */
+    overflow-y: auto; /* Allows scrolling when stacked */
+  }
+  .panel-body {
+    min-height: 500px; /* Gives map height when stacked */
+  }
+  .dashboard-wrapper {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+/* Mobile Devices (768px and below) */
+@media (max-width: 768px) {
+  .top-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .nav-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .budget-control {
+    justify-content: space-between;
+  }
+  .kpi-header {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .main-content {
+    padding: 0 1rem 1rem 1rem;
+  }
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .view-toggles {
+    width: 100%;
+    display: flex;
+  }
+  .view-toggles button {
+    flex: 1;
+    margin: 0;
+  }
+  
+  /* Landing page overrides for mobile */
+  .portal-card {
+    width: 100% !important; /* Overrides React inline styles */
+    flex-direction: column !important;
+    text-align: center !important;
+  }
+  .portal-card div {
+    text-align: center !important;
+  }
+}
