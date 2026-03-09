@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { useNavigate } from "react-router-dom";
 import "./App.css";
 
 const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
@@ -30,6 +31,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("map");
   const [image, setImage] = useState(null);
+  const navigate = useNavigate();
 
   /* Fetch dashboard data */
   const fetchDashboard = async () => {
@@ -121,34 +123,45 @@ export default function AdminDashboard() {
 
       <header className="dashboard-header">
 
-        <div>
-          <h1>GovRoadAI Infrastructure Command Center</h1>
-          <p>AI-powered road defect detection and repair planning</p>
-        </div>
+  <div className="header-title">
 
-        <div className="header-controls">
+    <button
+      className="back-btn"
+      onClick={() => navigate("/")}
+    >
+      ← Back
+    </button>
 
-          <div className="budget-box">
-            <label>Budget</label>
-            <input
-              type="number"
-              value={budget}
-              onChange={(e)=>setBudget(Number(e.target.value))}
-            />
-          </div>
+    <div>
+      <h1>GovRoadAI Infrastructure Command Center</h1>
+      <p>AI-powered road defect detection and repair planning</p>
+    </div>
 
-          <label className="upload-btn">
-            {loading ? "Processing..." : "Upload Dashcam"}
-            <input type="file" accept="video/*" onChange={uploadVideo} hidden />
-          </label>
+  </div>
 
-          <button className="reset-btn" onClick={resetSystem}>
-            Reset System
-          </button>
+  <div className="header-controls">
 
-        </div>
+    <div className="budget-box">
+      <label>Budget</label>
+      <input
+        type="number"
+        value={budget}
+        onChange={(e)=>setBudget(Number(e.target.value))}
+      />
+    </div>
 
-      </header>
+    <label className="upload-btn">
+      {loading ? "Processing..." : "Upload Dashcam"}
+      <input type="file" accept="video/*" onChange={uploadVideo} hidden />
+    </label>
+
+    <button className="reset-btn" onClick={resetSystem}>
+      Reset System
+    </button>
+
+  </div>
+
+</header>
 
       {/* AI STATS */}
 
