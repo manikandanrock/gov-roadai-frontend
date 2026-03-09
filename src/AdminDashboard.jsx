@@ -91,7 +91,7 @@ const AdminDashboard = () => {
         <div className="nav-brand">
           <Link to="/" style={{textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '10px'}}>
             <span style={{ fontSize: '1.2rem' }}>⬅️</span>
-            <h1>🛣️ Gov-RoadAI</h1>
+            <h1>Gov-RoadAI</h1>
           </Link>
           <span className="badge">Smart City Admin</span>
         </div>
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
             {loading && (
               <div className="loading-overlay">
                 <div className="spinner"></div>
-                <h3>Synchronizing...</h3>
+                <h3 style={{ color: '#0f172a' }}>Synchronizing...</h3>
               </div>
             )}
 
@@ -166,12 +166,12 @@ const AdminDashboard = () => {
                         pathOptions={{ color: color, weight: isCitizen ? 3 : 2, fillOpacity: 0.6 }}
                       >
                         <Popup>
-                          {/* UPDATED POPUP WITH IMAGE RENDERING */}
                           <div className="popup-content" style={{ minWidth: '220px' }}>
-                            <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '8px' }}>
+                            <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '8px', color: '#1e293b' }}>
                               {isCitizen ? "📱 Citizen Report" : "🎥 Dashcam Scan"}
                             </strong>
                             
+                            {/* AI RENDERED IMAGE IN POPUP */}
                             {p.image_data && (
                               <img 
                                 src={p.image_data} 
@@ -180,9 +180,9 @@ const AdminDashboard = () => {
                               />
                             )}
 
-                            <p style={{ margin: '4px 0' }}><strong>ID:</strong> {p.id}</p>
-                            <p style={{ margin: '4px 0' }}><strong>Depth:</strong> {p.depth_cm} cm</p>
-                            <p style={{ margin: '4px 0' }}><strong>Cost:</strong> ₹{p.cost_inr}</p>
+                            <p style={{ margin: '4px 0', color: '#475569' }}><strong>ID:</strong> {p.id}</p>
+                            <p style={{ margin: '4px 0', color: '#475569' }}><strong>Depth:</strong> {p.depth_cm} cm</p>
+                            <p style={{ margin: '4px 0', color: '#475569' }}><strong>Cost:</strong> ₹{p.cost_inr}</p>
                             <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
                               <span style={{ 
                                 background: isFunded ? '#ecfdf5' : '#fef2f2', 
@@ -218,7 +218,7 @@ const AdminDashboard = () => {
                       const isFunded = infraData.optimized_plan.some(op => op.id === p.id);
                       return (
                         <tr key={p.id}>
-                          {/* UPDATED TABLE WITH THUMBNAIL */}
+                          {/* AI RENDERED THUMBNAIL IN TABLE */}
                           <td>
                             {p.image_data ? (
                               <img 
@@ -230,12 +230,19 @@ const AdminDashboard = () => {
                               <span style={{ fontSize: '1.5rem' }}>🎥</span>
                             )}
                           </td>
-                          <td style={{ fontWeight: '600', color: '#4f46e5' }}>{p.id}</td>
+                          <td style={{ fontWeight: '700', color: '#4f46e5' }}>{p.id}</td>
                           <td>{p.source === 'citizen' ? '📱 Mobile' : '🎥 Dashcam'}</td>
                           <td><span className={p.risk_level === 'High' ? 'text-danger' : 'text-warning'}>{p.risk_level}</span></td>
                           <td>{p.depth_cm}</td>
                           <td>₹{p.cost_inr}</td>
-                          <td>{isFunded ? "✅ Funded" : "⏳ Unfunded"}</td>
+                          <td>
+                            <span style={{ 
+                                color: isFunded ? '#10b981' : '#ef4444', 
+                                fontWeight: '700' 
+                            }}>
+                              {isFunded ? "✅ Funded" : "⏳ Unfunded"}
+                            </span>
+                          </td>
                         </tr>
                       )
                     })}
