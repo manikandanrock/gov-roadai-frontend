@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
-import { Link } from "react-router-dom";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 
 const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
-/* Ensure map loads centered and correctly sized */
+/* Map auto focus */
 const MapFix = () => {
   const map = useMap();
 
@@ -20,47 +19,46 @@ const MapFix = () => {
   return null;
 };
 
-const AdminDashboard = () => {
+export default function AdminDashboard() {
 
   const [data, setData] = useState({
     detections: [],
     summary: { total_cost: 0, total_detected: 0 }
   });
 
-  const [loading, setLoading] = useState(false);
   const [budget, setBudget] = useState(1500000);
+  const [loading, setLoading] = useState(false);
   const [view, setView] = useState("map");
   const [image, setImage] = useState(null);
 
-  /* Fetch Dashboard Data */
+  /* Fetch dashboard data */
   const fetchDashboard = async () => {
+
     try {
 
       const res = await fetch(`${API_BASE_URL}/dashboard-data?budget=${budget}`);
-
       if (!res.ok) return;
 
       const json = await res.json();
       setData(json);
 
     } catch (err) {
-      console.error("Dashboard fetch error:", err);
+      console.error(err);
     }
+
   };
 
-  /* Auto refresh */
   useEffect(() => {
 
     fetchDashboard();
-
     const interval = setInterval(fetchDashboard, 10000);
 
     return () => clearInterval(interval);
 
   }, [budget]);
 
-  /* Upload dashcam footage */
-  const handleUpload = async (e) => {
+  /* Upload dashcam */
+  const uploadVideo = async (e) => {
 
     const file = e.target.files[0];
     if (!file) return;
@@ -79,332 +77,251 @@ const AdminDashboard = () => {
 
       fetchDashboard();
 
-    } catch (err) {
-
-      console.error(err);
+    } catch {
       alert("Upload failed");
-
-    } finally {
-
-      setLoading(false);
-      e.target.value = null;
-
     }
+
+    setLoading(false);
+
   };
 
-  /* Reset system */
-  const resetDatabase = async () => {
+  /* Reset DB */
+  const resetSystem = async () => {
 
     if (!window.confirm("Reset system database?")) return;
 
-    try {
+    await fetch(`${API_BASE_URL}/clear-database`, {
+      method: "DELETE"
+    });
 
-      await fetch(`${API_BASE_URL}/clear-database`, {
-        method: "DELETE"
-      });
-
-      fetchDashboard();
-
-    } catch (err) {
-      console.error(err);
-    }
+    fetchDashboard();
   };
 
-  const highRisk = useMemo(() => {
-    return data.detections.filter(d => d.risk_level === "High").length;
+  /* Stats */
+
+  const highRisk = useMemo(
+    () => data.detections.filter(d => d.risk_level === "High").length,
+    [data.detections]
+  );
+
+  const avgDepth = useMemo(() => {
+
+    if (!data.detections.length) return 0;
+
+    const total = data.detections.reduce((sum, d) => sum + (d.depth_cm || 0), 0);
+    return (total / data.detections.length).toFixed(1);
+
   }, [data.detections]);
 
   return (
 
-    <div className="admin-layout">
+    <div className="ai-dashboard">
 
-      {/* SIDEBAR */}
+      {/* HEADER */}
 
-      <aside className="admin-sidebar">
+      <header className="dashboard-header">
 
-        <div className="sidebar-brand">
-          <img src="/favicon.svg" alt="logo" />
-          <span>GovRoadAI</span>
+        <div>
+          <h1>GovRoadAI Infrastructure Command Center</h1>
+          <p>AI-powered road defect detection and repair planning</p>
         </div>
 
-        <nav className="sidebar-nav">
+        <div className="header-controls">
 
-          <Link to="/" className="nav-item">
-            🏠 Home
-          </Link>
-
-          <div className="nav-item active">
-            📊 Dashboard
+          <div className="budget-box">
+            <label>Budget</label>
+            <input
+              type="number"
+              value={budget}
+              onChange={(e)=>setBudget(Number(e.target.value))}
+            />
           </div>
 
-          <div className="nav-item">
-            🛰 Satellite
-          </div>
+          <label className="upload-btn">
+            {loading ? "Processing..." : "Upload Dashcam"}
+            <input type="file" accept="video/*" onChange={uploadVideo} hidden />
+          </label>
 
-          <div className="nav-item">
-            ⚙ System
-          </div>
-
-        </nav>
-
-        <div className="sidebar-footer">
-
-          <button className="btn-danger" onClick={resetDatabase}>
-            Reset Database
+          <button className="reset-btn" onClick={resetSystem}>
+            Reset System
           </button>
 
         </div>
 
-      </aside>
+      </header>
 
+      {/* AI STATS */}
 
-      {/* MAIN DASHBOARD */}
+      <section className="stats-grid">
 
-      <main className="admin-main">
-
-        {/* HEADER */}
-
-        <div className="dashboard-topbar">
-
-          <div>
-
-            <h1>AI Infrastructure Command Center</h1>
-
-            <p>
-              Real-time road monitoring powered by computer vision
-            </p>
-
-          </div>
-
-          <div className="topbar-controls">
-
-            <div className="budget-box">
-
-              <label>Budget</label>
-
-              <input
-                type="number"
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-              />
-
-            </div>
-
-            <label className="upload-btn">
-
-              {loading ? "Processing..." : "Upload Dashcam"}
-
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleUpload}
-                hidden
-              />
-
-            </label>
-
-          </div>
-
+        <div className="stat-card">
+          <h4>Total Defects</h4>
+          <span>{data.summary.total_detected}</span>
         </div>
 
-
-        {/* STATS */}
-
-        <div className="stats-grid">
-
-          <div className="stat-card">
-
-            <h4>Total Defects</h4>
-            <span>{data.summary.total_detected}</span>
-
-          </div>
-
-          <div className="stat-card danger">
-
-            <h4>High Risk</h4>
-            <span>{highRisk}</span>
-
-          </div>
-
-          <div className="stat-card success">
-
-            <h4>Budget Allocation</h4>
-            <span>₹{data.summary.total_cost.toLocaleString()}</span>
-
-          </div>
-
+        <div className="stat-card danger">
+          <h4>High Risk</h4>
+          <span>{highRisk}</span>
         </div>
 
-
-        {/* PANEL HEADER */}
-
-        <div className="panel-header">
-
-          <div className="tabs">
-
-            <button
-              className={view === "map" ? "active" : ""}
-              onClick={() => setView("map")}
-            >
-              Map Intelligence
-            </button>
-
-            <button
-              className={view === "table" ? "active" : ""}
-              onClick={() => setView("table")}
-            >
-              Data Logs
-            </button>
-
-          </div>
-
-          <div className="live-status">
-            ● Live System Active
-          </div>
-
+        <div className="stat-card success">
+          <h4>Budget Allocation</h4>
+          <span>₹{data.summary.total_cost.toLocaleString()}</span>
         </div>
 
+        <div className="stat-card">
+          <h4>Avg Depth</h4>
+          <span>{avgDepth} cm</span>
+        </div>
 
-        {/* DASHBOARD PANEL */}
+      </section>
 
-        <div className="dashboard-panel">
+      {/* VIEW SWITCH */}
 
-          {view === "map" ? (
+      <div className="view-tabs">
 
-            <MapContainer
-              center={[13.0827, 80.2707]}
-              zoom={14}
-              scrollWheelZoom={true}
-              style={{ height: "100%", width: "100%" }}
-            >
+        <button
+          className={view === "map" ? "active" : ""}
+          onClick={()=>setView("map")}
+        >
+          AI Map Intelligence
+        </button>
 
-              <MapFix />
+        <button
+          className={view === "table" ? "active" : ""}
+          onClick={()=>setView("table")}
+        >
+          Detection Logs
+        </button>
 
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              />
+        <div className="live-indicator">
+          ● Live AI System
+        </div>
 
-              {data.detections.map((p) => (
+      </div>
 
-                <CircleMarker
-                  key={p.id}
-                  center={[p.lat, p.lng]}
-                  radius={10}
-                  pathOptions={{
-                    color: p.risk_level === "High" ? "#ef4444" : "#f59e0b",
-                    fillOpacity: 0.7
-                  }}
-                >
+      {/* MAIN PANEL */}
 
-                  <Popup>
+      <div className="dashboard-panel">
 
-                    <div className="popup-card">
+        {view === "map" ? (
 
-                      {p.image_data && (
+          <MapContainer
+            center={[13.0827,80.2707]}
+            zoom={14}
+            style={{height:"100%",width:"100%"}}
+          >
 
+            <MapFix/>
+
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            />
+
+            {data.detections.map(d => (
+
+              <CircleMarker
+                key={d.id}
+                center={[d.lat,d.lng]}
+                radius={10}
+                pathOptions={{
+                  color: d.risk_level === "High" ? "#ef4444" : "#f59e0b",
+                  fillOpacity:.8
+                }}
+              >
+
+                <Popup>
+
+                  <div className="popup-ai">
+
+                    {d.image_data && (
+                      <img
+                        src={d.image_data}
+                        alt="defect"
+                        onClick={()=>setImage(d.image_data)}
+                      />
+                    )}
+
+                    <p><b>ID:</b> {d.id}</p>
+                    <p><b>Depth:</b> {d.depth_cm} cm</p>
+                    <p><b>Severity:</b> {d.risk_level}</p>
+                    <p><b>Repair Cost:</b> ₹{d.cost_inr}</p>
+
+                  </div>
+
+                </Popup>
+
+              </CircleMarker>
+
+            ))}
+
+          </MapContainer>
+
+        ) : (
+
+          <div className="table-wrapper">
+
+            <table className="ai-table">
+
+              <thead>
+
+                <tr>
+                  <th>Image</th>
+                  <th>ID</th>
+                  <th>Depth (cm)</th>
+                  <th>Severity</th>
+                  <th>Cost</th>
+                  <th>Source</th>
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {data.detections.map(d => (
+
+                  <tr key={d.id}>
+
+                    <td>
+                      {d.image_data &&
                         <img
-                          src={p.image_data}
+                          src={d.image_data}
+                          onClick={()=>setImage(d.image_data)}
                           alt="defect"
-                          onClick={() => setImage(p.image_data)}
                         />
+                      }
+                    </td>
 
-                      )}
+                    <td>{d.id}</td>
+                    <td>{d.depth_cm}</td>
+                    <td>{d.risk_level}</td>
+                    <td>₹{d.cost_inr}</td>
+                    <td>{d.source}</td>
 
-                      <p><strong>ID:</strong> {p.id}</p>
-                      <p><strong>Cost:</strong> ₹{p.cost_inr}</p>
-
-                    </div>
-
-                  </Popup>
-
-                </CircleMarker>
-
-              ))}
-
-            </MapContainer>
-
-          ) : (
-
-            <div className="table-wrapper">
-
-              <table className="modern-table">
-
-                <thead>
-
-                  <tr>
-                    <th>Image</th>
-                    <th>ID</th>
-                    <th>Source</th>
-                    <th>Severity</th>
-                    <th>Cost</th>
                   </tr>
 
-                </thead>
+                ))}
 
-                <tbody>
+              </tbody>
 
-                  {data.detections.map((p) => (
+            </table>
 
-                    <tr key={p.id}>
+          </div>
 
-                      <td>
+        )}
 
-                        {p.image_data ? (
+      </div>
 
-                          <img
-                            src={p.image_data}
-                            alt="defect"
-                            className="table-thumb"
-                            onClick={() => setImage(p.image_data)}
-                          />
-
-                        ) : "Video"}
-
-                      </td>
-
-                      <td>{p.id}</td>
-                      <td>{p.source}</td>
-
-                      <td className={p.risk_level === "High" ? "danger" : "warning"}>
-                        {p.risk_level}
-                      </td>
-
-                      <td>₹{p.cost_inr}</td>
-
-                    </tr>
-
-                  ))}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          )}
-
-        </div>
-
-      </main>
-
-
-      {/* IMAGE LIGHTBOX */}
+      {/* IMAGE VIEWER */}
 
       {image && (
 
-        <div
-          className="image-lightbox"
-          onClick={() => setImage(null)}
-        >
-
-          <img src={image} alt="defect large" />
-
+        <div className="image-viewer" onClick={()=>setImage(null)}>
+          <img src={image} alt="analysis"/>
         </div>
 
       )}
 
     </div>
   );
-};
-
-export default AdminDashboard;
+}
