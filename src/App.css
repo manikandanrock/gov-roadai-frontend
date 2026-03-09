@@ -1,6 +1,5 @@
 :root{
 --bg-main:#f8fafc;
---sidebar-bg:#0f172a;
 --card-bg:#ffffff;
 --primary:#4f46e5;
 --text-main:#1e293b;
@@ -189,135 +188,48 @@ font-weight:600;
 
 
 /* =========================================================
-Admin Layout
+AI DASHBOARD (NEW ADMIN UI)
 ========================================================= */
 
-.admin-layout{
-display:flex;
-height:100vh;
-width:100%;
-overflow:hidden;
-}
-
-
-/* Sidebar */
-
-.admin-sidebar{
-width:260px;
-background:var(--sidebar-bg);
-color:white;
-padding:2rem 1.5rem;
+.ai-dashboard{
+padding:2rem 3rem;
 display:flex;
 flex-direction:column;
-}
-
-.sidebar-brand{
-display:flex;
-align-items:center;
-gap:10px;
-margin-bottom:2.5rem;
-font-weight:800;
-font-size:1.2rem;
-}
-
-.sidebar-brand img{
-width:30px;
-height:30px;
-}
-
-.sidebar-nav{
-display:flex;
-flex-direction:column;
-}
-
-.nav-item{
-display:flex;
-align-items:center;
-gap:10px;
-padding:.8rem 1rem;
-border-radius:10px;
-text-decoration:none;
-color:#94a3b8;
-margin-bottom:.5rem;
-font-weight:600;
-cursor:pointer;
-transition:all .2s;
-}
-
-.nav-item:hover{
-background:rgba(255,255,255,0.06);
-color:white;
-}
-
-.nav-item.active{
-background:var(--primary);
-color:white;
-}
-
-.sidebar-footer{
-margin-top:auto;
-}
-
-
-/* Reset Button */
-
-.btn-danger{
-width:100%;
-background:rgba(239,68,68,0.1);
-color:var(--danger);
-border:1px solid var(--danger);
-padding:.7rem;
-border-radius:10px;
-font-weight:700;
-cursor:pointer;
-}
-
-.btn-danger:hover{
-background:var(--danger);
-color:white;
+gap:1.8rem;
 }
 
 
 /* =========================================================
-Main Dashboard
+Header
 ========================================================= */
 
-.admin-main{
-flex:1;
-padding:2rem;
-overflow-y:auto;
-display:flex;
-flex-direction:column;
-}
-
-
-/* Topbar */
-
-.dashboard-topbar{
+.dashboard-header{
 display:flex;
 justify-content:space-between;
 align-items:center;
-margin-bottom:2rem;
+flex-wrap:wrap;
+gap:1rem;
 }
 
-.dashboard-topbar h1{
-font-size:1.8rem;
-font-weight:800;
+.dashboard-header h1{
+font-size:1.9rem;
+font-weight:900;
 }
 
-.dashboard-topbar p{
+.dashboard-header p{
 color:var(--text-muted);
 margin-top:4px;
 }
 
-.topbar-controls{
+.header-controls{
 display:flex;
 align-items:center;
 gap:1rem;
+flex-wrap:wrap;
 }
 
 
-/* Budget Box */
+/* Budget Input */
 
 .budget-box{
 display:flex;
@@ -328,13 +240,11 @@ color:var(--text-muted);
 }
 
 .budget-box input{
-border:none;
 background:white;
 border-radius:8px;
 padding:6px 10px;
-font-weight:700;
-margin-top:3px;
 border:1px solid var(--border);
+font-weight:700;
 }
 
 
@@ -343,11 +253,11 @@ border:1px solid var(--border);
 .upload-btn{
 background:var(--primary);
 color:white;
-padding:.7rem 1.2rem;
+padding:.7rem 1.3rem;
 border-radius:10px;
 font-weight:700;
 cursor:pointer;
-box-shadow:0 8px 20px rgba(79,70,229,.3);
+box-shadow:0 10px 25px rgba(79,70,229,.35);
 transition:.2s;
 }
 
@@ -356,28 +266,51 @@ transform:translateY(-2px);
 }
 
 
+/* Reset Button */
+
+.reset-btn{
+background:rgba(239,68,68,.1);
+color:var(--danger);
+border:1px solid var(--danger);
+padding:.7rem 1.3rem;
+border-radius:10px;
+font-weight:700;
+cursor:pointer;
+}
+
+.reset-btn:hover{
+background:var(--danger);
+color:white;
+}
+
+
 /* =========================================================
-Stats
+Stats Cards
 ========================================================= */
 
 .stats-grid{
 display:grid;
-grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-gap:1.5rem;
-margin-bottom:2rem;
+grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+gap:1.4rem;
 }
 
 .stat-card{
 background:white;
-padding:1.5rem;
+padding:1.6rem;
 border-radius:16px;
 border:1px solid var(--border);
+box-shadow:0 8px 20px rgba(0,0,0,.04);
+transition:.2s;
+}
+
+.stat-card:hover{
+transform:translateY(-3px);
 }
 
 .stat-card h4{
 font-size:.85rem;
 color:var(--text-muted);
-margin-bottom:5px;
+margin-bottom:6px;
 }
 
 .stat-card span{
@@ -395,62 +328,71 @@ color:var(--success);
 
 
 /* =========================================================
-Panel Header
+View Tabs
 ========================================================= */
 
-.panel-header{
+.view-tabs{
 display:flex;
-justify-content:space-between;
 align-items:center;
-margin-bottom:10px;
+gap:1rem;
 }
 
-.tabs{
-display:flex;
+.view-tabs button{
 background:#f1f5f9;
-border-radius:10px;
-padding:4px;
-}
-
-.tabs button{
 border:none;
-background:none;
 padding:.5rem 1.2rem;
+border-radius:10px;
 font-weight:700;
 cursor:pointer;
-border-radius:8px;
 color:var(--text-muted);
 }
 
-.tabs button.active{
+.view-tabs button.active{
 background:white;
 color:var(--primary);
-box-shadow:0 3px 8px rgba(0,0,0,0.05);
+box-shadow:0 4px 10px rgba(0,0,0,0.05);
 }
 
-.live-status{
+.live-indicator{
+margin-left:auto;
 color:var(--success);
 font-weight:700;
-font-size:.9rem;
 }
 
 
 /* =========================================================
-Dashboard Panel
+Main Panel
 ========================================================= */
 
 .dashboard-panel{
-flex:1;
+height:520px;
 background:white;
 border-radius:20px;
 border:1px solid var(--border);
 overflow:hidden;
-position:relative;
+box-shadow:0 10px 30px rgba(0,0,0,0.05);
 }
 
 
 /* =========================================================
-Table
+AI Popup
+========================================================= */
+
+.popup-ai img{
+width:100%;
+border-radius:10px;
+margin-bottom:8px;
+cursor:pointer;
+}
+
+.popup-ai p{
+font-size:.85rem;
+margin-bottom:4px;
+}
+
+
+/* =========================================================
+AI Table
 ========================================================= */
 
 .table-wrapper{
@@ -458,62 +400,39 @@ padding:1rem;
 overflow:auto;
 }
 
-.modern-table{
+.ai-table{
 width:100%;
 border-collapse:collapse;
 }
 
-.modern-table th{
+.ai-table th{
 text-align:left;
 padding:1rem;
 font-size:.75rem;
-color:var(--text-muted);
 text-transform:uppercase;
-letter-spacing:.05em;
+color:var(--text-muted);
 }
 
-.modern-table td{
+.ai-table td{
 padding:1rem;
 border-top:1px solid #f1f5f9;
 font-weight:600;
 }
 
-.table-thumb{
+.ai-table img{
 width:70px;
 height:45px;
 border-radius:8px;
+cursor:pointer;
 object-fit:cover;
-cursor:pointer;
-}
-
-.danger{
-color:var(--danger);
-font-weight:700;
-}
-
-.warning{
-color:var(--warning);
-font-weight:700;
 }
 
 
 /* =========================================================
-Popup
+Image Viewer
 ========================================================= */
 
-.popup-card img{
-width:100%;
-border-radius:10px;
-margin-bottom:8px;
-cursor:pointer;
-}
-
-
-/* =========================================================
-Image Lightbox
-========================================================= */
-
-.image-lightbox{
+.image-viewer{
 position:fixed;
 inset:0;
 background:rgba(0,0,0,0.9);
@@ -523,7 +442,7 @@ justify-content:center;
 z-index:9999;
 }
 
-.image-lightbox img{
+.image-viewer img{
 max-width:90vw;
 max-height:90vh;
 border-radius:14px;
