@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './Citizen.css';
 
-// Centralized API URL for easy updates
 const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
 const CitizenApp = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", text: "" });
-  
   const [photoData, setPhotoData] = useState(null);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState(""); 
@@ -17,7 +15,8 @@ const CitizenApp = () => {
 
   const fetchAddress = async (lat, lng) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&accept-language=en`);
+      // FORCES ENGLISH LANGUAGE & STREET LEVEL ZOOM
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=en`);
       const data = await response.json();
       
       if (data && data.address) {
@@ -44,7 +43,7 @@ const CitizenApp = () => {
     if (!file) return;
 
     resetApp();
-    setStatus({ type: "info", text: "Acquiring GPS Lock (Please allow location permissions)..." });
+    setStatus({ type: "info", text: "Acquiring GPS Lock (Please allow location)..." });
     setPhotoData({ file: file, previewUrl: URL.createObjectURL(file) });
 
     if ("geolocation" in navigator) {
@@ -59,14 +58,16 @@ const CitizenApp = () => {
           setStatus({ type: "", text: "" }); 
         },
         (error) => {
-          // PROPER GPS ERROR HANDLING
+          // STRICT GPS ERROR HANDLING
           let errorMsg = "Could not get your location.";
-          if (error.code === 1) errorMsg = "Location access denied. Please enable GPS permissions in your phone browser settings.";
-          else if (error.code === 2) errorMsg = "Location unavailable. Please ensure your GPS is turned on.";
-          else if (error.code === 3) errorMsg = "GPS signal timed out. Please step outside for a clearer signal.";
-          
+          switch(error.code) {
+            case error.PERMISSION_DENIED: errorMsg = "GPS Denied. Please enable location permissions in your browser."; break;
+            case error.POSITION_UNAVAILABLE: errorMsg = "Location unavailable. Ensure your GPS is turned on."; break;
+            case error.TIMEOUT: errorMsg = "GPS request timed out. Please step outside."; break;
+            default: break;
+          }
           setStatus({ type: "error", text: errorMsg });
-          setPhotoData(null); // Reset photo if GPS fails to prevent submitting useless data
+          setPhotoData(null); 
         },
         geoOptions
       );
@@ -167,7 +168,7 @@ const CitizenApp = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <strong style={{ color: '#0f172a' }}>📍 Verified Location</strong>
                 {location && (
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', backgroundColor: location.accuracy <= 15 ? '#d1fae5' : '#fef3c7', color: location.accuracy <= 15 ? '#065f46' : '#b45309' }}>
+                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', backgroundColor: location.accuracy <= 25 ? '#d1fae5' : '#fef3c7', color: location.accuracy <= 25 ? '#065f46' : '#b45309' }}>
                     ±{location.accuracy}m Precision
                   </span>
                 )}
