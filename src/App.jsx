@@ -12,57 +12,35 @@ const LandingPage = () => {
       fontFamily: 'Inter, sans-serif', textAlign: 'center', padding: '20px'
     }}>
       
-      {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '3.5rem', color: '#0f172a', marginBottom: '10px' }}>🛣️ Gov-RoadAI</h1>
+        <h1 style={{ fontSize: '3.5rem', color: '#0f172a', marginBottom: '10px', letterSpacing: '-1px' }}>🛣️ Gov-RoadAI</h1>
         <p style={{ color: '#64748b', fontSize: '1.2rem', marginBottom: '5px', maxWidth: '600px', fontWeight: '500' }}>
           Smart Road Maintenance & Budgeting System for Smart Cities
         </p>
         
-        {/* Project Badge */}
         <div style={{ 
           backgroundColor: '#e0e7ff', color: '#4338ca', padding: '6px 16px', 
           borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '40px',
-          border: '1px solid #c7d2fe'
+          border: '1px solid #c7d2fe', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
         }}>
           🎓 Final Year Project
         </div>
         
         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          
-          <Link to="/report" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
-            padding: '2rem 3rem', backgroundColor: '#ffffff', color: '#0f172a', 
-            textDecoration: 'none', borderRadius: '16px', fontSize: '1.25rem', 
-            fontWeight: 'bold', border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', transition: 'transform 0.2s'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-          >
+          <Link to="/report" className="portal-card">
             <span style={{ fontSize: '2.5rem' }}>📱</span>
-            Citizen App
-            <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'normal' }}>Crowdsourced Reporting</span>
+            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0f172a' }}>Citizen App</span>
+            <span style={{ fontSize: '0.9rem', color: '#64748b' }}>Crowdsourced Reporting</span>
           </Link>
 
-          <Link to="/admin" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
-            padding: '2rem 3rem', backgroundColor: '#ffffff', color: '#0f172a', 
-            textDecoration: 'none', borderRadius: '16px', fontSize: '1.25rem', 
-            fontWeight: 'bold', border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', transition: 'transform 0.2s'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-          >
+          <Link to="/admin" className="portal-card">
             <span style={{ fontSize: '2.5rem' }}>🏛️</span>
-            Admin Portal
-            <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'normal' }}>Dashboard & AI Analytics</span>
+            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0f172a' }}>Admin Portal</span>
+            <span style={{ fontSize: '0.9rem', color: '#64748b' }}>Dashboard & AI Analytics</span>
           </Link>
         </div>
       </div>
 
-      {/* Academic Footer */}
       <footer style={{ 
         marginTop: 'auto', paddingTop: '2rem', width: '100%', 
         borderTop: '1px solid #e2e8f0', color: '#64748b' 
