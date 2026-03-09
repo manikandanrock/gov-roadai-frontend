@@ -29,9 +29,7 @@ const AdminDashboard = () => {
         const data = await res.json();
         setInfraData(data);
       }
-    } catch (err) {
-      console.error("Gov-RoadAI API Error:", err);
-    }
+    } catch (err) { console.error("Gov-RoadAI API Error:", err); }
   };
 
   useEffect(() => {
@@ -45,158 +43,87 @@ const AdminDashboard = () => {
     setLoading(true);
     const formData = new FormData();
     formData.append('file', e.target.files[0]);
-
     try {
       await fetch(`${API_BASE_URL}/analyze-infrastructure?budget=${budgetLimit || 0}`, { method: 'POST', body: formData });
       fetchDashboardData(); 
-    } catch (err) {
-      alert("Analysis failed. Ensure backend is active.");
-    } finally {
-      setLoading(false);
-      e.target.value = null; 
-    }
+    } catch (err) { alert("Analysis failed."); } finally { setLoading(false); e.target.value = null; }
   };
 
   const handleClearDatabase = async () => {
-    if (!window.confirm("Format entire database? This will remove all AI detections.")) return;
+    if (!window.confirm("Wipe entire database?")) return;
     setLoading(true);
-    try {
-      await fetch(`${API_BASE_URL}/clear-database`, { method: "DELETE" });
-      fetchDashboardData();
-    } finally {
-      setLoading(false);
-    }
+    try { await fetch(`${API_BASE_URL}/clear-database`, { method: "DELETE" }); fetchDashboardData(); }
+    finally { setLoading(false); }
   };
 
   const highRiskCount = useMemo(() => infraData.detections.filter(d => d.risk_level === 'High').length, [infraData.detections]);
 
   return (
     <div className="admin-layout">
-      {/* Sidebar Navigation */}
       <aside className="admin-sidebar">
-        <div className="sidebar-brand">
-          <div className="logo-icon">🛣️</div>
-          <h2>Gov-RoadAI</h2>
-        </div>
+        <div className="sidebar-brand"><div className="logo-icon">🛣️</div><h2>Gov-RoadAI</h2></div>
         <nav className="sidebar-nav">
           <Link to="/" className="nav-item">🏠 Home</Link>
           <div className="nav-item active">📊 Analytics</div>
-          <div className="nav-item">📍 Map View</div>
-          <div className="nav-item">⚙️ Settings</div>
         </nav>
-        <div className="sidebar-footer">
-          <button className="btn-clear" onClick={handleClearDatabase}>🗑️ Reset DB</button>
-        </div>
+        <div className="sidebar-footer"><button className="btn-clear" onClick={handleClearDatabase}>🗑️ Reset DB</button></div>
       </aside>
 
       <main className="admin-main">
-        {/* Top Header */}
         <header className="admin-header">
-          <div className="header-title">
-            <h1>Infrastructure Dashboard</h1>
-            <p>Smart City Asset Management & AI Insights</p>
-          </div>
+          <div className="header-title"><h1>Infrastructure Dashboard</h1><p>Smart City Asset Management</p></div>
           <div className="header-actions">
-            <div className="budget-input-group">
-              <label>Available Budget</label>
-              <input type="number" value={budgetLimit} onChange={(e) => setBudgetLimit(e.target.value)} />
-            </div>
-            <label className="btn-primary">
-              {loading ? "⌛ Processing..." : "📁 Upload Video"}
-              <input type="file" accept="video/*" onChange={handleInfraAnalysis} hidden />
-            </label>
+            <div className="budget-input-group"><label>Budget</label><input type="number" value={budgetLimit} onChange={(e) => setBudgetLimit(e.target.value)} /></div>
+            <label className="btn-primary">{loading ? "⌛ Processing..." : "📁 Upload Video"}<input type="file" accept="video/*" onChange={handleInfraAnalysis} hidden /></label>
           </div>
         </header>
 
-        {/* Stats Grid */}
         <section className="stats-grid">
-          <div className="stat-card">
-            <span className="stat-label">Total Defects</span>
-            <span className="stat-value">{infraData.summary?.total_detected || 0}</span>
-            <span className="stat-trend">Overall Detections</span>
-          </div>
-          <div className="stat-card urgent">
-            <span className="stat-label">Critical Risks</span>
-            <span className="stat-value">{highRiskCount}</span>
-            <span className="stat-trend">Requires Immediate Action</span>
-          </div>
-          <div className="stat-card success">
-            <span className="stat-label">Allocated Repair Cost</span>
-            <span className="stat-value">₹{infraData.summary?.total_cost.toLocaleString() || 0}</span>
-            <span className="stat-trend">Within Budget Limit</span>
-          </div>
+          <div className="stat-card"><span className="stat-label">Total Defects</span><span className="stat-value">{infraData.summary?.total_detected || 0}</span></div>
+          <div className="stat-card urgent"><span className="stat-label">Critical Risks</span><span className="stat-value">{highRiskCount}</span></div>
+          <div className="stat-card success"><span className="stat-label">Budget Spend</span><span className="stat-value">₹{infraData.summary?.total_cost.toLocaleString() || 0}</span></div>
         </section>
 
-        {/* Dynamic Content Area */}
         <div className="content-container">
           <div className="content-panel">
-            <div className="panel-top">
-              <div className="tabs">
-                <button className={viewMode === 'map' ? 'active' : ''} onClick={() => setViewMode('map')}>Interactive Map</button>
-                <button className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')}>Detailed Logs</button>
-              </div>
-            </div>
+            <div className="panel-top"><div className="tabs">
+              <button className={viewMode === 'map' ? 'active' : ''} onClick={() => setViewMode('map')}>Interactive Map</button>
+              <button className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')}>Detailed Logs</button>
+            </div></div>
             <div className="panel-view">
               {viewMode === 'map' ? (
                 <MapContainer center={[13.0827, 80.2707]} zoom={12} className="leaflet-map">
-                  <MapResizer />
-                  <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                  <MapResizer /><TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
                   {infraData.detections.map((p) => (
-                    <CircleMarker 
-                      key={p.id} center={[p.lat, p.lng]} 
-                      radius={p.risk_level === 'High' ? 12 : 8}
-                      pathOptions={{ color: p.risk_level === 'High' ? '#ef4444' : '#f59e0b', fillOpacity: 0.7 }}
-                    >
-                      <Popup>
-                        <div className="map-popup">
-                          {p.image_data && <img src={p.image_data} alt="AI scan" onClick={() => setExpandedImage(p.image_data)} />}
-                          <h3>{p.source.toUpperCase()} REPORT</h3>
-                          <p><strong>Severity:</strong> {p.risk_level}</p>
-                          <p><strong>Repair Cost:</strong> ₹{p.cost_inr}</p>
-                        </div>
-                      </Popup>
+                    <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={10} pathOptions={{ color: p.risk_level === 'High' ? '#ef4444' : '#f59e0b', fillOpacity: 0.7 }}>
+                      <Popup><div className="map-popup">
+                        {p.image_data && <img src={p.image_data} alt="scan" onClick={() => setExpandedImage(p.image_data)} style={{width: '100%', borderRadius: '8px', cursor: 'pointer'}}/>}
+                        <p><strong>Cost:</strong> ₹{p.cost_inr}</p>
+                      </div></Popup>
                     </CircleMarker>
                   ))}
                 </MapContainer>
               ) : (
-                <div className="table-responsive">
-                  <table className="modern-table">
-                    <thead>
-                      <tr>
-                        <th>Visual</th>
-                        <th>ID</th>
-                        <th>Source</th>
-                        <th>Severity</th>
-                        <th>Asphalt (kg)</th>
-                        <th>Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {infraData.detections.map(p => (
-                        <tr key={p.id}>
-                          <td>{p.image_data ? <img src={p.image_data} className="table-thumb" onClick={() => setExpandedImage(p.image_data)} /> : "🎥"}</td>
-                          <td>{p.id}</td>
-                          <td><span className={`badge-source ${p.source}`}>{p.source}</span></td>
-                          <td><span className={`badge-risk ${p.risk_level}`}>{p.risk_level}</span></td>
-                          <td>{p.kg_asphalt}</td>
-                          <td>₹{p.cost_inr}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <div className="table-responsive"><table className="modern-table">
+                  <thead><tr><th>Visual</th><th>ID</th><th>Source</th><th>Severity</th><th>Cost</th></tr></thead>
+                  <tbody>{infraData.detections.map(p => (
+                    <tr key={p.id}>
+                      <td>{p.image_data ? <img src={p.image_data} className="table-thumb" onClick={() => setExpandedImage(p.image_data)} /> : "🎥"}</td>
+                      <td>{p.id}</td><td>{p.source}</td><td>{p.risk_level}</td><td>₹{p.cost_inr}</td>
+                    </tr>
+                  ))}</tbody>
+                </table></div>
               )}
             </div>
           </div>
         </div>
       </main>
 
-      {/* Lightbox for Image Expansion */}
       {expandedImage && (
         <div className="image-lightbox" onClick={() => setExpandedImage(null)}>
-          <div className="lightbox-wrap">
+          <div className="lightbox-wrap" onClick={(e) => e.stopPropagation()}>
             <img src={expandedImage} alt="Analysis Result" />
-            <button className="close-lightbox">✕</button>
+            <button className="close-lightbox" onClick={() => setExpandedImage(null)}>✕</button>
           </div>
         </div>
       )}
