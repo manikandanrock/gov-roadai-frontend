@@ -8,17 +8,11 @@ const LandingPage = () => {
   return (
     <div className="landing-wrapper">
       <div className="landing-content">
-        {/* App Logo & Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '15px' }}>
           <img 
             src="/favicon.svg" 
             alt="Gov-RoadAI Logo" 
-            style={{ 
-              width: '80px', 
-              height: '80px', 
-              borderRadius: '20px', 
-              boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.4)' 
-            }} 
+            style={{ width: '80px', height: '80px', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.4)' }} 
           />
           <h1 className="landing-title">Gov-RoadAI</h1>
         </div>
@@ -28,37 +22,24 @@ const LandingPage = () => {
           Automated Road Defect Detection and Budget Optimization.
         </p>
         
-        <div className="landing-badge">
-          🎓 Final Year Project Submission
-        </div>
+        <div className="landing-badge">🎓 Final Year Project Submission</div>
         
-        {/* Navigation Cards */}
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
-          
           <Link to="/report" className="portal-card">
             <div className="portal-icon">📱</div>
             <div>
-              <span style={{ display: 'block', fontSize: '1.4rem', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>
-                Citizen App
-              </span>
-              <span style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '500' }}>
-                Crowdsourced Pothole Reporting
-              </span>
+              <span style={{ display: 'block', fontSize: '1.4rem', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>Citizen App</span>
+              <span style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '500' }}>Crowdsourced Pothole Reporting</span>
             </div>
           </Link>
 
           <Link to="/admin" className="portal-card">
             <div className="portal-icon">🏛️</div>
             <div>
-              <span style={{ display: 'block', fontSize: '1.4rem', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>
-                Admin Portal
-              </span>
-              <span style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '500' }}>
-                Dashboard & AI Video Analytics
-              </span>
+              <span style={{ display: 'block', fontSize: '1.4rem', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>Admin Portal</span>
+              <span style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '500' }}>Dashboard & AI Video Analytics</span>
             </div>
           </Link>
-
         </div>
       </div>
 
