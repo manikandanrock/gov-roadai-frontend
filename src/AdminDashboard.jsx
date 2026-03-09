@@ -158,7 +158,7 @@ const AdminDashboard = () => {
                   {infraData.detections.map((p) => {
                     const isCitizen = p.source === 'citizen';
                     const isFunded = infraData.optimized_plan.some(op => op.id === p.id);
-                    let color = isCitizen ? '#8b5cf6' : (p.risk_level === 'High' ? '#ef4444' : '#f59e0b');
+                    let color = isCitizen ? '#4f46e5' : (p.risk_level === 'High' ? '#ef4444' : '#f59e0b');
 
                     return (
                       <CircleMarker 
@@ -166,12 +166,32 @@ const AdminDashboard = () => {
                         pathOptions={{ color: color, weight: isCitizen ? 3 : 2, fillOpacity: 0.6 }}
                       >
                         <Popup>
-                          <div className="popup-content">
-                            <strong>{isCitizen ? "📱 Citizen Report" : "🎥 AI Dashcam Scan"}</strong>
-                            <hr style={{ margin: '8px 0', borderColor: '#e2e8f0' }}/>
+                          {/* UPDATED POPUP WITH IMAGE RENDERING */}
+                          <div className="popup-content" style={{ minWidth: '220px' }}>
+                            <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '8px' }}>
+                              {isCitizen ? "📱 Citizen Report" : "🎥 Dashcam Scan"}
+                            </strong>
+                            
+                            {p.image_data && (
+                              <img 
+                                src={p.image_data} 
+                                alt="AI Detection" 
+                                style={{ width: '100%', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '10px' }} 
+                              />
+                            )}
+
                             <p style={{ margin: '4px 0' }}><strong>ID:</strong> {p.id}</p>
-                            <p style={{ margin: '4px 0' }}><strong>Depth:</strong> {p.depth_cm} cm | <strong>Cost:</strong> ₹{p.cost_inr}</p>
-                            <p style={{ margin: '4px 0' }}><strong>Status:</strong> {isFunded ? "✅ Approved" : "⏳ Pending Funds"}</p>
+                            <p style={{ margin: '4px 0' }}><strong>Depth:</strong> {p.depth_cm} cm</p>
+                            <p style={{ margin: '4px 0' }}><strong>Cost:</strong> ₹{p.cost_inr}</p>
+                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                              <span style={{ 
+                                background: isFunded ? '#ecfdf5' : '#fef2f2', 
+                                color: isFunded ? '#10b981' : '#ef4444', 
+                                padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem' 
+                              }}>
+                                {isFunded ? "✅ Funds Approved" : "⏳ Pending Budget"}
+                              </span>
+                            </div>
                           </div>
                         </Popup>
                       </CircleMarker>
@@ -184,6 +204,7 @@ const AdminDashboard = () => {
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th>Image</th>
                       <th>ID</th>
                       <th>Source</th>
                       <th>Risk Level</th>
@@ -197,7 +218,19 @@ const AdminDashboard = () => {
                       const isFunded = infraData.optimized_plan.some(op => op.id === p.id);
                       return (
                         <tr key={p.id}>
-                          <td>{p.id}</td>
+                          {/* UPDATED TABLE WITH THUMBNAIL */}
+                          <td>
+                            {p.image_data ? (
+                              <img 
+                                src={p.image_data} 
+                                alt="Defect" 
+                                style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} 
+                              />
+                            ) : (
+                              <span style={{ fontSize: '1.5rem' }}>🎥</span>
+                            )}
+                          </td>
+                          <td style={{ fontWeight: '600', color: '#4f46e5' }}>{p.id}</td>
                           <td>{p.source === 'citizen' ? '📱 Mobile' : '🎥 Dashcam'}</td>
                           <td><span className={p.risk_level === 'High' ? 'text-danger' : 'text-warning'}>{p.risk_level}</span></td>
                           <td>{p.depth_cm}</td>
