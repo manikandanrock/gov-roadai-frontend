@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import './App.css'; 
 
-// Fix for Leaflet grey tile rendering issue
+const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
+
 const MapResizer = () => {
   const map = useMap();
   useEffect(() => {
@@ -22,7 +23,7 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await fetch(`https://maniiiikk-roadgovai.hf.space/api/v1/dashboard-data?budget=${budgetLimit}`);
+      const res = await fetch(`${API_BASE_URL}/dashboard-data?budget=${budgetLimit || 0}`);
       if (res.ok) {
         const data = await res.json();
         setInfraData(data);
@@ -45,14 +46,13 @@ const AdminDashboard = () => {
     formData.append('file', e.target.files[0]);
 
     try {
-      await fetch(`https://maniiiikk-roadgovai.hf.space/v1/analyze-infrastructure?budget=${budgetLimit}`, {
-        method: 'POST', body: formData,
-      });
+      await fetch(`${API_BASE_URL}/analyze-infrastructure?budget=${budgetLimit || 0}`, { method: 'POST', body: formData });
       fetchDashboardData(); 
     } catch (err) {
-      alert("Error processing dashcam video. Is the backend running?");
+      alert("Error processing dashcam video. Check backend connection.");
     } finally {
       setLoading(false);
+      e.target.value = null; // reset file input
     }
   };
 
@@ -70,21 +70,14 @@ const AdminDashboard = () => {
   };
 
   const handleClearDatabase = async () => {
-    // Standard browser confirmation prompt to prevent accidental clicks
     if (!window.confirm("Are you sure you want to delete ALL reports and dashcam data? This cannot be undone.")) return;
-    
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/v1/clear-database", {
-        method: "DELETE",
-      });
-      
-      const data = await response.json();
-      if (data.status === "success") {
-        fetchDashboardData(); // Instantly refresh the map and numbers back to zero
-      }
+      const res = await fetch(`${API_BASE_URL}/clear-database`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.status === "success") fetchDashboardData();
     } catch (err) {
-      alert("Error clearing the database. Make sure the backend is running.");
+      alert("Error clearing the database.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +90,7 @@ const AdminDashboard = () => {
       <nav className="top-nav">
         <div className="nav-brand">
           <Link to="/" style={{textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '10px'}}>
-            <span>⬅️</span>
+            <span style={{ fontSize: '1.2rem' }}>⬅️</span>
             <h1>🛣️ Gov-RoadAI</h1>
           </Link>
           <span className="badge">Smart City Admin</span>
@@ -105,23 +98,16 @@ const AdminDashboard = () => {
        <div className="nav-actions">
           <div className="budget-control">
             <label>City Budget (₹):</label>
-            <input type="number" value={budgetLimit} onChange={(e) => setBudgetLimit(e.target.value)} disabled={loading} />
+            <input type="number" value={budgetLimit} onChange={(e) => setBudgetLimit(e.target.value)} disabled={loading} min="0" />
           </div>
-          <label className="upload-btn">
+          <label className={`upload-btn ${loading ? 'disabled' : ''}`}>
             {loading ? "⚙️ Processing..." : "📁 Upload Dashcam Video"}
             <input type="file" accept="video/*" onChange={handleInfraAnalysis} disabled={loading} hidden />
           </label>
           <button className="export-btn" onClick={exportToCSV} disabled={infraData.optimized_plan.length === 0}>
             📥 Export Plan
           </button>
-          
-          {/* NEW: Clear Database Button */}
-          <button 
-            className="export-btn" 
-            style={{ backgroundColor: '#ef4444' }} // Red color for danger actions
-            onClick={handleClearDatabase} 
-            disabled={loading || infraData.detections.length === 0}
-          >
+          <button className="clear-btn" onClick={handleClearDatabase} disabled={loading || infraData.detections.length === 0}>
             🗑️ Clear Data
           </button>
         </div>
@@ -160,38 +146,39 @@ const AdminDashboard = () => {
             {loading && (
               <div className="loading-overlay">
                 <div className="spinner"></div>
-                <h3>Running AI Models</h3>
-                <p>Analyzing depth and predicting maintenance costs...</p>
+                <h3>Synchronizing...</h3>
               </div>
             )}
 
             {viewMode === 'map' ? (
-              <MapContainer center={[13.0827, 80.2707]} zoom={12} style={{height: "100%", width: "100%", borderRadius: "8px"}}>
-                <MapResizer />
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                {infraData.detections.map((p) => {
-                  const isCitizen = p.source === 'citizen';
-                  const isFunded = infraData.optimized_plan.some(op => op.id === p.id);
-                  let color = isCitizen ? '#8b5cf6' : (p.risk_level === 'High' ? '#ef4444' : '#f59e0b');
+              <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+                <MapContainer center={[13.0827, 80.2707]} zoom={12} style={{height: "100%", width: "100%"}}>
+                  <MapResizer />
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  {infraData.detections.map((p) => {
+                    const isCitizen = p.source === 'citizen';
+                    const isFunded = infraData.optimized_plan.some(op => op.id === p.id);
+                    let color = isCitizen ? '#8b5cf6' : (p.risk_level === 'High' ? '#ef4444' : '#f59e0b');
 
-                  return (
-                    <CircleMarker 
-                      key={p.id} center={[p.lat, p.lng]} radius={isCitizen ? 10 : p.depth_cm * 1.5}
-                      pathOptions={{ color: color, weight: isCitizen ? 3 : 2, fillOpacity: 0.6 }}
-                    >
-                      <Popup>
-                        <div className="popup-content">
-                          <strong>{isCitizen ? "📱 Citizen Report" : "🎥 AI Dashcam Scan"}</strong>
-                          <hr/>
-                          <p>ID: {p.id}</p>
-                          <p>Depth: {p.depth_cm} cm | Cost: ₹{p.cost_inr}</p>
-                          <p>Status: {isFunded ? "✅ Approved" : "⏳ Pending Funds"}</p>
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  );
-                })}
-              </MapContainer>
+                    return (
+                      <CircleMarker 
+                        key={p.id} center={[p.lat, p.lng]} radius={isCitizen ? 10 : p.depth_cm * 1.5}
+                        pathOptions={{ color: color, weight: isCitizen ? 3 : 2, fillOpacity: 0.6 }}
+                      >
+                        <Popup>
+                          <div className="popup-content">
+                            <strong>{isCitizen ? "📱 Citizen Report" : "🎥 AI Dashcam Scan"}</strong>
+                            <hr style={{ margin: '8px 0', borderColor: '#e2e8f0' }}/>
+                            <p style={{ margin: '4px 0' }}><strong>ID:</strong> {p.id}</p>
+                            <p style={{ margin: '4px 0' }}><strong>Depth:</strong> {p.depth_cm} cm | <strong>Cost:</strong> ₹{p.cost_inr}</p>
+                            <p style={{ margin: '4px 0' }}><strong>Status:</strong> {isFunded ? "✅ Approved" : "⏳ Pending Funds"}</p>
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    );
+                  })}
+                </MapContainer>
+              </div>
             ) : (
               <div className="table-wrapper">
                 <table className="data-table">
