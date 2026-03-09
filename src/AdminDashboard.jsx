@@ -52,7 +52,7 @@ const AdminDashboard = () => {
       alert("Error processing dashcam video. Check backend connection.");
     } finally {
       setLoading(false);
-      e.target.value = null; // reset file input
+      e.target.value = null; 
     }
   };
 
