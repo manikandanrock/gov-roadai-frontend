@@ -88,7 +88,7 @@ const CitizenApp = () => {
     formData.append("file", photoData.file);
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/analyze-pothole", {
+      const response = await fetch("https://maniiiikk-roadgovai.hf.space/api/v1/analyze-pothole", {
         method: "POST", body: formData,
       });
       const data = await response.json();
@@ -117,7 +117,7 @@ const CitizenApp = () => {
     formData.append("risk_level", aiResults.severity);
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/submit-citizen-report", {
+      const response = await fetch("https://maniiiikk-roadgovai.hf.space/api/v1/submit-citizen-report", {
         method: "POST", body: formData,
       });
       const data = await response.json();
