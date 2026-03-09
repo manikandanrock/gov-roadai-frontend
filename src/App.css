@@ -246,6 +246,27 @@ padding:6px 10px;
 border:1px solid var(--border);
 font-weight:700;
 }
+.header-title{
+display:flex;
+align-items:center;
+gap:16px;
+}
+
+.back-btn{
+background:white;
+border:1px solid var(--border);
+padding:6px 14px;
+border-radius:10px;
+font-weight:700;
+cursor:pointer;
+color:var(--text-main);
+transition:.2s;
+}
+
+.back-btn:hover{
+background:#f1f5f9;
+transform:translateX(-2px);
+}
 
 
 /* Upload Button */
