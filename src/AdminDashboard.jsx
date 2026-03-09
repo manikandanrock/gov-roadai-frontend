@@ -22,7 +22,7 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/dashboard-data?budget=${budgetLimit}`);
+      const res = await fetch(`https://maniiiikk-roadgovai.hf.space/api/v1/dashboard-data?budget=${budgetLimit}`);
       if (res.ok) {
         const data = await res.json();
         setInfraData(data);
@@ -45,7 +45,7 @@ const AdminDashboard = () => {
     formData.append('file', e.target.files[0]);
 
     try {
-      await fetch(`http://localhost:8000/api/v1/analyze-infrastructure?budget=${budgetLimit}`, {
+      await fetch(`https://maniiiikk-roadgovai.hf.space/v1/analyze-infrastructure?budget=${budgetLimit}`, {
         method: 'POST', body: formData,
       });
       fetchDashboardData(); 
