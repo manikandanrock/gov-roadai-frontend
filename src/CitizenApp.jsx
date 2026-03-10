@@ -59,8 +59,8 @@ const CitizenApp = () => {
         (error) => {
           let errorMsg = "Could not get your location.";
           switch(error.code) {
-            case error.PERMISSION_DENIED: errorMsg = "GPS Denied. Please enable location permissions in your browser."; break;
-            case error.POSITION_UNAVAILABLE: errorMsg = "Location unavailable. Ensure your GPS is turned on."; break;
+            case error.PERMISSION_DENIED: errorMsg = "GPS Denied. Please enable location permissions."; break;
+            case error.POSITION_UNAVAILABLE: errorMsg = "Location unavailable. Ensure GPS is on."; break;
             case error.TIMEOUT: errorMsg = "GPS request timed out. Please step outside."; break;
             default: break;
           }
@@ -94,7 +94,7 @@ const CitizenApp = () => {
         setStatus({ type: "error", text: "AI Engine returned an error." });
       }
     } catch (err) {
-      setStatus({ type: "error", text: "AI Engine connection failed. Check backend status." });
+      setStatus({ type: "error", text: "AI Engine connection failed." });
     } finally {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ const CitizenApp = () => {
 
   const submitFinalReport = async () => {
     setLoading(true);
-    setStatus({ type: "info", text: "Submitting to Govt Database..." });
+    setStatus({ type: "info", text: "Compressing & Submitting Report..." });
 
     const formData = new FormData();
     formData.append("lat", location.lat);
@@ -111,12 +111,36 @@ const CitizenApp = () => {
     formData.append("kg_asphalt", aiResults.total_kg);
     formData.append("cost_inr", aiResults.total_cost);
     formData.append("risk_level", aiResults.severity);
-    
-    // --> THIS IS THE CRITICAL LINE THAT SENDS THE IMAGE TO THE BACKEND <--
-    formData.append("image_data", aiResults.annotated_image); 
+
+    // --- Compression Utility to handle large mobile payloads ---
+    const compressImage = (base64Str) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64Str;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Optimal width for database storage
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Exporting at 0.7 quality to stay under backend payload limits
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+        };
+      });
+    };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/submit-citizen-report`, { method: "POST", body: formData });
+      // Compress the base64 AI result image before appending to FormData
+      const compressedImg = await compressImage(aiResults.annotated_image);
+      formData.append("image_data", compressedImg); 
+
+      const response = await fetch(`${API_BASE_URL}/submit-citizen-report`, { 
+        method: "POST", 
+        body: formData 
+      });
       const data = await response.json();
       
       if (data.status === "success") {
@@ -124,7 +148,7 @@ const CitizenApp = () => {
         setStatus({ type: "success", text: data.message });
       }
     } catch (err) {
-      setStatus({ type: "error", text: "Database connection failed." });
+      setStatus({ type: "error", text: "Submission failed. Image payload might be too large." });
     } finally {
       setLoading(false);
     }
@@ -163,23 +187,29 @@ const CitizenApp = () => {
         ) : (
           <>
             <h3>{aiResults ? "AI Detection Results" : "Review Photo"}</h3>
-            <img src={aiResults ? aiResults.annotated_image : photoData.previewUrl} alt="Defect analysis" style={{ width: '100%', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0', objectFit: 'cover', maxHeight: '300px' }} />
+            <img 
+              src={aiResults ? aiResults.annotated_image : photoData.previewUrl} 
+              alt="Defect analysis" 
+              style={{ width: '100%', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0', objectFit: 'cover', maxHeight: '300px' }} 
+            />
             
             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', textAlign: 'left', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <strong style={{ color: '#0f172a' }}>📍 Verified Location</strong>
                 {location && (
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', backgroundColor: location.accuracy <= 25 ? '#d1fae5' : '#fef3c7', color: location.accuracy <= 25 ? '#065f46' : '#b45309' }}>
+                  <span style={{ 
+                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', 
+                    backgroundColor: location.accuracy <= 25 ? '#d1fae5' : '#fef3c7', 
+                    color: location.accuracy <= 25 ? '#065f46' : '#b45309' 
+                  }}>
                     ±{location.accuracy}m Precision
                   </span>
                 )}
               </div>
               
-              {address ? (
-                <div style={{ color: '#0f172a', fontWeight: '500', marginBottom: '4px', fontSize: '0.95rem' }}>{address}</div>
-              ) : (
-                <div style={{ color: '#f59e0b', fontSize: '0.9rem', marginBottom: '4px' }}>Translating GPS to street address...</div>
-              )}
+              <div style={{ color: '#0f172a', fontWeight: '500', marginBottom: '4px', fontSize: '0.95rem' }}>
+                {address || "Translating GPS to street address..."}
+              </div>
               <div style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>
                 {location ? `GPS: ${location.lat}, ${location.lng}` : "Acquiring coordinates..."}
               </div>
