@@ -26,6 +26,7 @@ export default function AdminDashboard() {
   const [budget, setBudget] = useState(1500000);
   const [view, setView] = useState("map");
   const [image, setImage] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(false); // Default to Light Mode
   const navigate = useNavigate();
 
   const fetchDashboard = async () => {
@@ -68,7 +69,7 @@ export default function AdminDashboard() {
   }, [data.summary.total_cost, budget]);
 
   return (
-    <div className="soc-layout">
+    <div className={`soc-layout ${isDarkMode ? 'dark-mode' : 'light-mode'}`}>
       {/* SIDEBAR */}
       <aside className="soc-sidebar">
         <div className="soc-brand">
@@ -105,6 +106,10 @@ export default function AdminDashboard() {
         </div>
 
         <div className="soc-panel bottom-panel">
+          <div className="theme-toggle" onClick={() => setIsDarkMode(!isDarkMode)}>
+            {isDarkMode ? "☀️ Switch to Light Mode" : "🌙 Switch to Dark Mode"}
+          </div>
+
           <div className="system-status">
             <span className="status-dot pulsing"></span>
             AI Polling Active
@@ -150,9 +155,19 @@ export default function AdminDashboard() {
 
           <div className="workspace-view">
             {view === "map" ? (
-              <MapContainer center={[13.0827, 80.2707]} zoom={14} style={{ height: "100%", width: "100%", background: "#0a0f1c" }}>
+              <MapContainer 
+                center={[13.0827, 80.2707]} 
+                zoom={14} 
+                style={{ height: "100%", width: "100%", background: isDarkMode ? "#0a0f1c" : "#e5e7eb" }}
+              >
                 <MapFix />
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                {/* Dynamically swap maps based on theme */}
+                <TileLayer 
+                  url={isDarkMode 
+                    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  } 
+                />
                 {data.detections.map(d => (
                   <CircleMarker
                     key={d.id}
