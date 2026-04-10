@@ -21,26 +21,48 @@ const CitizenApp = () => {
   // Live Video State
   const [cameraActive, setCameraActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0); // Live Timer
   
-  // Refs for Live Tracking & Video
+  // Refs
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const watchIdRef = useRef(null);
-  
-  // Refs for Dashcam Telemetry Sync
   const recordingStartTimeRef = useRef(null);
   const telemetryLogRef = useRef([]);
   const isRecordingRef = useRef(false);
 
+  // --- Utility: Native Haptic Feedback ---
+  const triggerHaptic = (type = 'light') => {
+    if (!navigator.vibrate) return;
+    if (type === 'light') navigator.vibrate(40);
+    if (type === 'heavy') navigator.vibrate([60, 50, 60]);
+    if (type === 'success') navigator.vibrate([30, 40, 30, 40, 50]);
+  };
+
   // --- Clean up streams when changing modes or unmounting ---
   useEffect(() => {
-    if (mode !== 'video') {
-      stopCameraAndGPS();
-    }
+    if (mode !== 'video') stopCameraAndGPS();
     return () => stopCameraAndGPS();
   }, [mode]);
+
+  // --- Live Timer Logic ---
+  useEffect(() => {
+    let interval;
+    if (isRecording) {
+      interval = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+    } else {
+      setRecordingTime(0);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const stopCameraAndGPS = () => {
     if (streamRef.current) {
@@ -72,21 +94,22 @@ const CitizenApp = () => {
         
         setAddress(preciseAddress);
       } else {
-        setAddress("Address lookup unavailable.");
+        setAddress("Location pinned.");
       }
     } catch (err) {
-      setAddress("Could not connect to map server.");
+      setAddress("GPS coordinates locked.");
     }
   };
 
   // --- LIVE VIDEO & GPS LOGIC ---
   const startLiveCamera = async () => {
+    triggerHaptic();
     resetApp();
     try {
-      setStatus({ type: "info", text: "Requesting camera and GPS access..." });
+      setStatus({ type: "info", text: "Initializing Live AI Vision..." });
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" }, 
+        video: { facingMode: "environment", width: { ideal: 1280 } }, 
         audio: false 
       });
       
@@ -101,13 +124,15 @@ const CitizenApp = () => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             const accuracy = Math.round(pos.coords.accuracy);
+            // Calculate speed in km/h
+            const speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
             
-            setLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), accuracy });
+            setLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), accuracy, speed });
             if (!address) fetchAddress(lat, lng);
 
             if (isRecordingRef.current && recordingStartTimeRef.current) {
               const timeOffset = Date.now() - recordingStartTimeRef.current;
-              telemetryLogRef.current.push({ timeOffset, lat, lng, accuracy });
+              telemetryLogRef.current.push({ timeOffset, lat, lng, accuracy, speed });
             }
           },
           (err) => console.error("GPS Watch Error:", err),
@@ -122,10 +147,11 @@ const CitizenApp = () => {
   };
 
   const startRecording = () => {
+    triggerHaptic('heavy');
     chunksRef.current = [];
     telemetryLogRef.current = [];
-    const recorder = new MediaRecorder(streamRef.current);
     
+    const recorder = new MediaRecorder(streamRef.current, { mimeType: 'video/mp4' });
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
@@ -139,12 +165,13 @@ const CitizenApp = () => {
   };
 
   const stopRecording = () => {
+    triggerHaptic('light');
     if (mediaRecorderRef.current && isRecording) {
       isRecordingRef.current = false; 
       mediaRecorderRef.current.stop(); 
       setIsRecording(false);
       setLoading(true);
-      setStatus({ type: "info", text: "Syncing Telemetry & Analyzing Dashcam..." });
+      setStatus({ type: "info", text: "Syncing Telemetry & Running AI Analysis..." });
       stopCameraAndGPS();
     }
   };
@@ -161,13 +188,14 @@ const CitizenApp = () => {
       const data = await response.json();
       
       if (data.status === "success") {
-        setStatus({ type: "success", text: `Scan complete! Logged ${data.defects_logged || 0} defects with precision GPS.` });
+        triggerHaptic('success');
+        setStatus({ type: "success", text: `AI Scan Complete! Successfully logged ${data.defects_logged || 0} defects.` });
         setIsSubmitted(true);
       } else {
-        setStatus({ type: "error", text: "Video processing failed." });
+        setStatus({ type: "error", text: "Video processing failed on server." });
       }
     } catch (err) {
-      setStatus({ type: "error", text: "Connection failed during upload." });
+      setStatus({ type: "error", text: "Network connection failed during upload." });
     } finally {
       setLoading(false);
     }
@@ -175,15 +203,15 @@ const CitizenApp = () => {
 
   // --- PHOTO LOGIC ---
   const handlePhotoCapture = (e) => {
+    triggerHaptic('heavy');
     const file = e.target.files[0];
     if (!file) return;
 
     resetApp();
-    setStatus({ type: "info", text: "Acquiring GPS Lock (Please allow location)..." });
+    setStatus({ type: "info", text: "Acquiring precision GPS lock..." });
     setPhotoData({ file: file, previewUrl: URL.createObjectURL(file) });
 
     if ("geolocation" in navigator) {
-      const geoOptions = { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 };
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude;
@@ -193,28 +221,19 @@ const CitizenApp = () => {
           setStatus({ type: "", text: "" }); 
         },
         (error) => {
-          let errorMsg = "Could not get your location.";
-          switch(error.code) {
-            case error.PERMISSION_DENIED: errorMsg = "GPS Denied. Please enable location permissions."; break;
-            case error.POSITION_UNAVAILABLE: errorMsg = "Location unavailable. Ensure GPS is on."; break;
-            case error.TIMEOUT: errorMsg = "GPS request timed out. Please step outside."; break;
-            default: break;
-          }
-          setStatus({ type: "error", text: errorMsg });
+          setStatus({ type: "error", text: "Could not get your location. Please check GPS settings." });
           setPhotoData(null); 
         },
-        geoOptions
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
       );
-    } else {
-      setStatus({ type: "error", text: "Geolocation is not supported by your browser." });
-      setPhotoData(null);
     }
   };
 
   const runAIAnalysis = async () => {
+    triggerHaptic();
     if (!photoData || !location) return;
     setLoading(true);
-    setStatus({ type: "info", text: "Running YOLO Detection & Depth Estimation..." });
+    setStatus({ type: "info", text: "AI Engine analyzing depth and severity..." });
     
     const formData = new FormData();
     formData.append("file", photoData.file);
@@ -224,21 +243,23 @@ const CitizenApp = () => {
       const data = await response.json();
       
       if (data.status === "success") {
+        triggerHaptic('success');
         setAiResults(data);
         setStatus({ type: "", text: "" });
       } else {
         setStatus({ type: "error", text: "AI Engine returned an error." });
       }
     } catch (err) {
-      setStatus({ type: "error", text: "AI Engine connection failed." });
+      setStatus({ type: "error", text: "AI connection failed." });
     } finally {
       setLoading(false);
     }
   };
 
   const submitFinalReport = async () => {
+    triggerHaptic();
     setLoading(true);
-    setStatus({ type: "info", text: "Compressing & Submitting Report..." });
+    setStatus({ type: "info", text: "Submitting report to GovRoad authorities..." });
 
     const formData = new FormData();
     formData.append("lat", location.lat);
@@ -258,7 +279,6 @@ const CitizenApp = () => {
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
-          
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/jpeg', 0.7)); 
@@ -274,17 +294,19 @@ const CitizenApp = () => {
       const data = await response.json();
       
       if (data.status === "success") {
+        triggerHaptic('success');
         setIsSubmitted(true);
-        setStatus({ type: "success", text: data.message || "Report submitted successfully." });
+        setStatus({ type: "success", text: data.message || "Report verified and submitted." });
       }
     } catch (err) {
-      setStatus({ type: "error", text: "Submission failed. Payload might be too large." });
+      setStatus({ type: "error", text: "Submission failed." });
     } finally {
       setLoading(false);
     }
   };
 
   const resetApp = () => {
+    triggerHaptic();
     setPhotoData(null);
     setLocation(null);
     setAddress("");
@@ -299,49 +321,61 @@ const CitizenApp = () => {
         
         {/* Top Navigation */}
         <nav className="top-nav">
-          <Link to="/" className="back-link">
+          <Link to="/" className="back-link" onClick={() => triggerHaptic()}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            Back
+            Exit to Portal
           </Link>
         </nav>
 
         {/* Header */}
         <header className="brand-header">
-          <div className="brand-icon">🛣️</div>
-          <h2>Gov-RoadAI</h2>
-          <p>Citizen Reporting Portal</p>
+          <div className="brand-icon pulse-soft">🛣️</div>
+          <h2>GovRoad AI</h2>
+          <p>Citizen Sentinel Portal</p>
         </header>
 
         {/* Native-style Segmented Control */}
         <div className="segmented-control">
           <button className={`segment ${mode === 'photo' ? 'active' : ''}`} onClick={() => { setMode('photo'); resetApp(); }}>
-            📷 Photo Mode
+            <span className="segment-icon">📸</span> Single Photo
           </button>
           <button className={`segment ${mode === 'video' ? 'active' : ''}`} onClick={() => { setMode('video'); resetApp(); }}>
-            📹 Live Dashcam
+            <span className="segment-icon">📹</span> Live Dashcam
           </button>
         </div>
         
         {/* Main Card */}
         <main className="upload-card">
           {mode === 'video' ? (
-            <div className="mode-content">
-              <h3>Live Infrastructure Scan</h3>
-              <p className="card-subtitle">Mount your phone or hold it steady. AI will scan your live feed and log defects dynamically.</p>
+            <div className="mode-content fade-in">
+              <div className="card-header-text">
+                <h3>Live Dashcam Scanner</h3>
+                <p>Mount your phone on the dashboard. AI will automatically scan the road and log defects dynamically.</p>
+              </div>
               
               <div className={`video-container ${cameraActive || isSubmitted ? 'visible' : 'hidden'}`}>
                 <video ref={videoRef} autoPlay playsInline muted className="live-video-preview" />
                 
+                {/* Advanced Dashcam HUD */}
                 {location && cameraActive && (
-                  <div className="live-hud">
-                    <div className="hud-header">
-                      <div className={`recording-indicator ${isRecording ? 'recording' : 'standby'}`}>
-                        <span className="dot"></span> {isRecording ? "RECORDING" : "STANDBY"}
+                  <div className="advanced-hud">
+                    <div className="hud-top-bar">
+                      <div className={`recording-badge ${isRecording ? 'recording' : 'standby'}`}>
+                        <span className="rec-dot"></span> {isRecording ? formatTime(recordingTime) : "STANDBY"}
                       </div>
-                      <div className="hud-accuracy">±{location.accuracy}m</div>
+                      <div className="speed-badge">
+                        <span className="speed-val">{location.speed || 0}</span>
+                        <span className="speed-unit">km/h</span>
+                      </div>
                     </div>
-                    <div className="gps-feed">
-                      {location.lat}, {location.lng}
+                    
+                    <div className="hud-bottom-bar">
+                      <div className="crosshair"></div>
+                      <div className="telemetry-data">
+                        <span>LAT: {location.lat}</span>
+                        <span>LNG: {location.lng}</span>
+                        <span className="accuracy">GPS ±{location.accuracy}m</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -349,72 +383,96 @@ const CitizenApp = () => {
 
               <div className="action-group-vertical">
                 {!cameraActive && !isSubmitted && !loading && (
-                  <button onClick={startLiveCamera} className="btn btn-primary btn-large">
-                    👁️ Enable Camera & GPS
+                  <button onClick={startLiveCamera} className="btn btn-primary btn-massive">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                    Enable AI Camera
                   </button>
                 )}
 
                 {cameraActive && !isRecording && (
-                  <button onClick={startRecording} className="btn btn-success btn-large">
-                    ▶️ Start Scanning
+                  <button onClick={startRecording} className="btn btn-success btn-massive pulse-button">
+                    Start AI Scan
                   </button>
                 )}
 
                 {isRecording && (
-                  <button onClick={stopRecording} className="btn btn-danger btn-large">
-                    ⏹️ Stop & Submit Scan
+                  <button onClick={stopRecording} className="btn btn-danger btn-massive">
+                    <div className="stop-square"></div> Stop & Analyze Log
                   </button>
                 )}
 
                 {loading && (
-                  <button className="btn btn-disabled btn-large">
-                    <span className="spinner"></span> Processing AI...
+                  <button className="btn btn-disabled btn-massive">
+                    <span className="spinner-modern"></span> Running AI Models...
                   </button>
                 )}
 
                 {isSubmitted && (
-                   <button onClick={() => { resetApp(); startLiveCamera(); }} className="btn btn-success btn-large">
-                     Start New Scan
+                   <button onClick={() => { resetApp(); startLiveCamera(); }} className="btn btn-primary btn-massive">
+                     Start New Route Scan
                    </button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="mode-content">
+            <div className="mode-content fade-in">
               {!photoData ? (
                 <>
-                  <h3>Report a Road Defect</h3>
-                  <p className="card-subtitle">Take a clear photo of the pothole. Our AI will analyze the depth and categorize the risk.</p>
-                  <label className="btn btn-primary btn-large file-upload-btn">
-                    📸 Take Photo
+                  <div className="card-header-text">
+                    <h3>Report Road Defect</h3>
+                    <p>Take a clear picture of the pothole. Our AI evaluates depth, severity, and repair cost instantly.</p>
+                  </div>
+                  
+                  <div className="camera-placeholder">
+                     <div className="camera-icon-bg">📸</div>
+                  </div>
+
+                  <label className="btn btn-primary btn-massive file-upload-btn">
+                    Open Camera
                     <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
                   </label>
                 </>
               ) : (
                 <>
-                  <h3>{aiResults ? "AI Detection Results" : "Review Photo"}</h3>
-                  <div className="image-preview-wrapper">
+                  <div className="card-header-text">
+                    <h3>{aiResults ? "AI Detection Results" : "Review Evidence"}</h3>
+                  </div>
+
+                  <div className="image-preview-wrapper glass-panel">
                     <img src={aiResults ? aiResults.annotated_image : photoData.previewUrl} alt="Defect analysis" className="preview-image" />
+                    {!aiResults && <div className="scanning-overlay">Pending Analysis</div>}
                   </div>
                   
-                  <div className="location-info-card">
+                  <div className="location-info-card glass-panel">
                     <div className="card-header">
-                      <strong>📍 Verified Location</strong>
+                      <div className="flex-align">
+                        <span className="pin-icon">📍</span>
+                        <strong>Verified Location</strong>
+                      </div>
                       {location && (
                         <span className={`badge-precision ${location.accuracy <= 25 ? 'high' : 'low'}`}>
-                          ±{location.accuracy}m Precision
+                          ±{location.accuracy}m
                         </span>
                       )}
                     </div>
-                    <div className="address-text">{address || "Translating GPS to street address..."}</div>
-                    <div className="coord-text">{location ? `GPS: ${location.lat}, ${location.lng}` : "Acquiring coordinates..."}</div>
+                    <div className="address-text">{address || "Translating GPS..."}</div>
+                    <div className="coord-text">{location ? `${location.lat}, ${location.lng}` : "Acquiring coordinates..."}</div>
                   </div>
 
                   {aiResults && !isSubmitted && (
-                    <div className="ai-summary-card">
-                      <div className="summary-row"><span>Defects Found:</span> <strong>{aiResults.defects_detected}</strong></div>
-                      <div className="summary-row"><span>Severity:</span> <strong className={`sev-${aiResults.severity.toLowerCase()}`}>{aiResults.severity}</strong></div>
-                      <div className="summary-row"><span>Est. Cost:</span> <strong>₹{aiResults.total_cost}</strong></div>
+                    <div className="ai-summary-card slide-up">
+                      <div className="summary-row">
+                        <span className="label">Defects Detected</span> 
+                        <span className="value badge-neutral">{aiResults.defects_detected}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span className="label">AI Severity Score</span> 
+                        <span className={`value badge-sev sev-${aiResults.severity.toLowerCase()}`}>{aiResults.severity}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span className="label">Est. Repair Cost</span> 
+                        <span className="value cost">₹{aiResults.total_cost}</span>
+                      </div>
                     </div>
                   )}
 
@@ -424,14 +482,14 @@ const CitizenApp = () => {
                     ) : !aiResults ? (
                       <>
                         <button onClick={runAIAnalysis} disabled={loading || !location} className={`btn btn-primary flex-2 ${loading || !location ? 'btn-disabled' : ''}`}>
-                          {loading ? <><span className="spinner"></span> Analyzing...</> : "🔍 Run AI Analysis"}
+                          {loading ? <><span className="spinner-modern"></span> Analyzing</> : "Run AI Engine"}
                         </button>
                         <button onClick={resetApp} disabled={loading} className="btn btn-secondary flex-1">Retake</button>
                       </>
                     ) : (
                       <>
                         <button onClick={submitFinalReport} disabled={loading} className={`btn btn-accent flex-2 ${loading ? 'btn-disabled' : ''}`}>
-                          {loading ? <><span className="spinner"></span> Sending...</> : "📤 Submit Report"}
+                          {loading ? <><span className="spinner-modern"></span> Submitting</> : "Submit to Govt"}
                         </button>
                         <button onClick={resetApp} disabled={loading} className="btn btn-secondary flex-1">Cancel</button>
                       </>
@@ -446,6 +504,9 @@ const CitizenApp = () => {
         {/* Global Status Toast */}
         {status.text && (
           <div className={`status-toast ${status.type}`}>
+            {status.type === 'success' && '✅ '}
+            {status.type === 'error' && '⚠️ '}
+            {status.type === 'info' && '🔄 '}
             {status.text}
           </div>
         )}
