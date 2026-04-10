@@ -5,8 +5,11 @@ import './Citizen.css';
 const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
 const CitizenApp = () => {
+  const [mode, setMode] = useState("photo"); // "photo" or "video"
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", text: "" });
+  
+  // Photo State
   const [photoData, setPhotoData] = useState(null);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState(""); 
@@ -47,7 +50,6 @@ const CitizenApp = () => {
 
     if ("geolocation" in navigator) {
       const geoOptions = { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 };
-
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude;
@@ -72,6 +74,38 @@ const CitizenApp = () => {
     } else {
       setStatus({ type: "error", text: "Geolocation is not supported by your browser." });
       setPhotoData(null);
+    }
+  };
+
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    resetApp();
+    setLoading(true);
+    setStatus({ type: "info", text: "Uploading and running AI analysis on video. This may take a moment..." });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      // Reusing the dashcam endpoint for video analysis
+      const response = await fetch(`${API_BASE_URL}/analyze-infrastructure`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        setStatus({ type: "success", text: "Video analysis complete! Defects have been securely logged to the database." });
+        setIsSubmitted(true);
+      } else {
+        setStatus({ type: "error", text: "Video processing failed." });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: "Connection failed during video upload." });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -112,28 +146,25 @@ const CitizenApp = () => {
     formData.append("cost_inr", aiResults.total_cost);
     formData.append("risk_level", aiResults.severity);
 
-    // --- Compression Utility to handle large mobile payloads ---
     const compressImage = (base64Str) => {
       return new Promise((resolve) => {
         const img = new Image();
         img.src = base64Str;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Optimal width for database storage
+          const MAX_WIDTH = 800; 
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
           
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Exporting at 0.7 quality to stay under backend payload limits
           resolve(canvas.toDataURL('image/jpeg', 0.7)); 
         };
       });
     };
 
     try {
-      // Compress the base64 AI result image before appending to FormData
       const compressedImg = await compressImage(aiResults.annotated_image);
       formData.append("image_data", compressedImg); 
 
@@ -173,74 +204,103 @@ const CitizenApp = () => {
         <h2>Gov-RoadAI</h2>
         <p>Citizen Reporting Portal</p>
       </div>
+
+      {/* Mode Toggle */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+        <button 
+          onClick={() => { setMode('photo'); resetApp(); }} 
+          style={{ padding: '10px 20px', borderRadius: '20px', border: 'none', fontWeight: 'bold', backgroundColor: mode === 'photo' ? '#2563eb' : '#e2e8f0', color: mode === 'photo' ? 'white' : '#475569', cursor: 'pointer' }}
+        >
+          📷 Photo Mode
+        </button>
+        <button 
+          onClick={() => { setMode('video'); resetApp(); }} 
+          style={{ padding: '10px 20px', borderRadius: '20px', border: 'none', fontWeight: 'bold', backgroundColor: mode === 'video' ? '#2563eb' : '#e2e8f0', color: mode === 'video' ? 'white' : '#475569', cursor: 'pointer' }}
+        >
+          📹 Video Mode
+        </button>
+      </div>
       
       <div className="upload-card">
-        {!photoData ? (
+        {mode === 'video' ? (
           <>
-            <h3>Report a Road Defect</h3>
-            <p>Take a clear photo of the pothole. Our AI will analyze the depth and identify it.</p>
-            <label className="capture-btn">
-              📸 Take Photo
-              <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
-            </label>
+            <h3>Report via Video</h3>
+            <p>Upload a short video of the road segment. Our AI will scan the entire footage and log defects automatically.</p>
+            {!isSubmitted ? (
+               <label className={`capture-btn ${loading ? 'disabled' : ''}`}>
+                 {loading ? "Processing Video..." : "📹 Upload Video"}
+                 <input type="file" accept="video/*" onChange={handleVideoUpload} disabled={loading} hidden />
+               </label>
+            ) : (
+               <button onClick={resetApp} className="capture-btn" style={{ backgroundColor: '#10b981', border: 'none' }}>
+                 Upload Another Video
+               </button>
+            )}
           </>
         ) : (
-          <>
-            <h3>{aiResults ? "AI Detection Results" : "Review Photo"}</h3>
-            <img 
-              src={aiResults ? aiResults.annotated_image : photoData.previewUrl} 
-              alt="Defect analysis" 
-              style={{ width: '100%', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0', objectFit: 'cover', maxHeight: '300px' }} 
-            />
-            
-            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', textAlign: 'left', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <strong style={{ color: '#0f172a' }}>📍 Verified Location</strong>
-                {location && (
-                  <span style={{ 
-                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', 
-                    backgroundColor: location.accuracy <= 25 ? '#d1fae5' : '#fef3c7', 
-                    color: location.accuracy <= 25 ? '#065f46' : '#b45309' 
-                  }}>
-                    ±{location.accuracy}m Precision
-                  </span>
-                )}
-              </div>
+          /* Existing Photo Logic Render */
+          !photoData ? (
+            <>
+              <h3>Report a Road Defect</h3>
+              <p>Take a clear photo of the pothole. Our AI will analyze the depth and identify it.</p>
+              <label className="capture-btn">
+                📸 Take Photo
+                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
+              </label>
+            </>
+          ) : (
+            <>
+              <h3>{aiResults ? "AI Detection Results" : "Review Photo"}</h3>
+              <img 
+                src={aiResults ? aiResults.annotated_image : photoData.previewUrl} 
+                alt="Defect analysis" 
+                style={{ width: '100%', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0', objectFit: 'cover', maxHeight: '300px' }} 
+              />
               
-              <div style={{ color: '#0f172a', fontWeight: '500', marginBottom: '4px', fontSize: '0.95rem' }}>
-                {address || "Translating GPS to street address..."}
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', textAlign: 'left', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong style={{ color: '#0f172a' }}>📍 Verified Location</strong>
+                  {location && (
+                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', backgroundColor: location.accuracy <= 25 ? '#d1fae5' : '#fef3c7', color: location.accuracy <= 25 ? '#065f46' : '#b45309' }}>
+                      ±{location.accuracy}m Precision
+                    </span>
+                  )}
+                </div>
+                <div style={{ color: '#0f172a', fontWeight: '500', marginBottom: '4px', fontSize: '0.95rem' }}>
+                  {address || "Translating GPS to street address..."}
+                </div>
+                <div style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                  {location ? `GPS: ${location.lat}, ${location.lng}` : "Acquiring coordinates..."}
+                </div>
               </div>
-              <div style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                {location ? `GPS: ${location.lat}, ${location.lng}` : "Acquiring coordinates..."}
-              </div>
-            </div>
 
-            {aiResults && !isSubmitted && (
-              <div style={{ background: '#e0e7ff', padding: '15px', borderRadius: '8px', textAlign: 'left', border: '1px solid #c7d2fe', marginBottom: '15px' }}>
-                <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Defects Found:</strong> {aiResults.defects_detected}</p>
-                <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Severity:</strong> {aiResults.severity}</p>
-                <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Est. Cost:</strong> ₹{aiResults.total_cost}</p>
-              </div>
-            )}
+              {aiResults && !isSubmitted && (
+                <div style={{ background: '#e0e7ff', padding: '15px', borderRadius: '8px', textAlign: 'left', border: '1px solid #c7d2fe', marginBottom: '15px' }}>
+                  <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Defects Found:</strong> {aiResults.defects_detected}</p>
+                  <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Severity:</strong> {aiResults.severity}</p>
+                  <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Est. Cost:</strong> ₹{aiResults.total_cost}</p>
+                </div>
+              )}
 
-            {isSubmitted ? (
-              <button onClick={resetApp} className="capture-btn" style={{ backgroundColor: '#10b981', border: 'none' }}>Report Another Defect</button>
-            ) : !aiResults ? (
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={runAIAnalysis} disabled={loading || !location} className={`capture-btn ${loading || !location ? 'disabled' : ''}`} style={{ flex: 2, border: 'none' }}>
-                  {loading ? "Analyzing..." : "🔍 Run AI Analysis"}
-                </button>
-                <button onClick={resetApp} disabled={loading} className="capture-btn" style={{ flex: 1, backgroundColor: '#64748b', border: 'none' }}>Retake</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={submitFinalReport} disabled={loading} className={`capture-btn ${loading ? 'disabled' : ''}`} style={{ flex: 2, border: 'none', backgroundColor: '#8b5cf6' }}>
-                  {loading ? "Sending..." : "📤 Submit Report"}
-                </button>
-                <button onClick={resetApp} disabled={loading} className="capture-btn" style={{ flex: 1, backgroundColor: '#64748b', border: 'none' }}>Cancel</button>
-              </div>
-            )}
-          </>
+              {isSubmitted ? (
+                <button onClick={resetApp} className="capture-btn" style={{ backgroundColor: '#10b981', border: 'none' }}>Report Another Defect</button>
+              ) : !aiResults ? (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={runAIAnalysis} disabled={loading || !location} className={`capture-btn ${loading || !location ? 'disabled' : ''}`} style={{ flex: 2, border: 'none' }}>
+                    {loading ? "Analyzing..." : "🔍 Run AI Analysis"}
+                  </button>
+                  <button onClick={resetApp} disabled={loading} className="capture-btn" style={{ flex: 1, backgroundColor: '#64748b', border: 'none' }}>Retake</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={submitFinalReport} disabled={loading} className={`capture-btn ${loading ? 'disabled' : ''}`} style={{ flex: 2, border: 'none', backgroundColor: '#8b5cf6' }}>
+                    {loading ? "Sending..." : "📤 Submit Report"}
+                  </button>
+                  <button onClick={resetApp} disabled={loading} className="capture-btn" style={{ flex: 1, backgroundColor: '#64748b', border: 'none' }}>Cancel</button>
+                </div>
+              )}
+            </>
+          )
         )}
       </div>
 
