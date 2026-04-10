@@ -206,20 +206,20 @@ const CitizenApp = () => {
       </div>
 
       {/* Mode Toggle */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
-        <button 
-          onClick={() => { setMode('photo'); resetApp(); }} 
-          style={{ padding: '10px 20px', borderRadius: '20px', border: 'none', fontWeight: 'bold', backgroundColor: mode === 'photo' ? '#2563eb' : '#e2e8f0', color: mode === 'photo' ? 'white' : '#475569', cursor: 'pointer' }}
-        >
-          📷 Photo Mode
-        </button>
-        <button 
-          onClick={() => { setMode('video'); resetApp(); }} 
-          style={{ padding: '10px 20px', borderRadius: '20px', border: 'none', fontWeight: 'bold', backgroundColor: mode === 'video' ? '#2563eb' : '#e2e8f0', color: mode === 'video' ? 'white' : '#475569', cursor: 'pointer' }}
-        >
-          📹 Video Mode
-        </button>
-      </div>
+      <div className="mode-toggle">
+  <button 
+    className={`mode-btn ${mode === 'photo' ? 'active' : ''}`}
+    onClick={() => { setMode('photo'); resetApp(); }} 
+  >
+    📷 Photo Mode
+  </button>
+  <button 
+    className={`mode-btn ${mode === 'video' ? 'active' : ''}`}
+    onClick={() => { setMode('video'); resetApp(); }} 
+  >
+    📹 Video Mode
+  </button>
+</div>
       
       <div className="upload-card">
         {mode === 'video' ? (
