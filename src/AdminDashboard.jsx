@@ -28,7 +28,6 @@ export default function AdminDashboard() {
   const [image, setImage] = useState(null);
   const navigate = useNavigate();
 
-  /* Fetch dashboard data */
   const fetchDashboard = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/dashboard-data?budget=${budget}`);
@@ -46,14 +45,12 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [budget]);
 
-  /* Reset DB */
   const resetSystem = async () => {
-    if (!window.confirm("⚠️ WARNING: This will permanently delete all infrastructure data. Continue?")) return;
+    if (!window.confirm("⚠️ WARNING: Purge all infrastructure data?")) return;
     await fetch(`${API_BASE_URL}/clear-database`, { method: "DELETE" });
     fetchDashboard();
   };
 
-  /* Derived Stats */
   const highRisk = useMemo(
     () => data.detections.filter(d => d.risk_level === "High").length,
     [data.detections]
@@ -71,19 +68,19 @@ export default function AdminDashboard() {
   }, [data.summary.total_cost, budget]);
 
   return (
-    <div className="admin-layout">
+    <div className="soc-layout">
       {/* SIDEBAR */}
-      <aside className="admin-sidebar">
-        <div className="sidebar-brand">
-          <button className="sidebar-back" onClick={() => navigate("/")}>← Home</button>
+      <aside className="soc-sidebar">
+        <div className="soc-brand">
+          <button className="soc-back-btn" onClick={() => navigate("/")}>← Exit to Portal</button>
           <h2>GovRoadAI</h2>
-          <p>Command Center</p>
+          <span className="soc-badge">COMMAND CENTER</span>
         </div>
 
-        <div className="sidebar-section">
-          <h3>Financial Control</h3>
-          <div className="budget-control">
-            <label>Operating Budget (₹)</label>
+        <div className="soc-panel">
+          <h3 className="panel-title">FINANCIAL CONTROL</h3>
+          <div className="budget-input-group">
+            <span className="currency-symbol">₹</span>
             <input
               type="number"
               value={budget}
@@ -93,112 +90,106 @@ export default function AdminDashboard() {
             />
           </div>
 
-          <div className="budget-visualizer">
-            <div className="budget-labels">
-              <span>Used: ₹{data.summary.total_cost.toLocaleString()}</span>
-              <span>{budgetUsedPercent}%</span>
+          <div className="budget-meter">
+            <div className="meter-labels">
+              <span>Utilized: ₹{data.summary.total_cost.toLocaleString()}</span>
+              <span className="meter-percent">{budgetUsedPercent}%</span>
             </div>
-            <div className="progress-bar-bg">
+            <div className="meter-track">
               <div 
-                className={`progress-bar-fill ${budgetUsedPercent > 90 ? 'critical' : budgetUsedPercent > 70 ? 'warning' : 'safe'}`} 
+                className={`meter-fill ${budgetUsedPercent > 90 ? 'danger' : budgetUsedPercent > 70 ? 'warning' : 'safe'}`} 
                 style={{ width: `${budgetUsedPercent}%` }}
               ></div>
             </div>
           </div>
         </div>
 
-        <div className="sidebar-section">
-          <h3>System Admin</h3>
-          <button className="btn-danger" onClick={resetSystem}>
+        <div className="soc-panel bottom-panel">
+          <div className="system-status">
+            <span className="status-dot pulsing"></span>
+            AI Polling Active
+          </div>
+          <button className="soc-purge-btn" onClick={resetSystem}>
             Purge Database
           </button>
-          <div className="system-status">
-            <span className="pulse-dot"></span> System Live & Polling
-          </div>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="admin-main">
-        {/* STATS ROW */}
-        <div className="admin-stats-row">
-          <div className="admin-stat-card">
-            <p className="stat-label">Total Defects Found</p>
-            <h3 className="stat-value">{data.summary.total_detected}</h3>
+      <main className="soc-main">
+        {/* STATS HUD */}
+        <div className="soc-hud">
+          <div className="hud-card">
+            <p className="hud-label">Total Defects</p>
+            <h3 className="hud-value">{data.summary.total_detected}</h3>
           </div>
-          <div className="admin-stat-card critical">
-            <p className="stat-label">High Severity</p>
-            <h3 className="stat-value">{highRisk}</h3>
+          <div className="hud-card danger-glow">
+            <p className="hud-label">Critical Severity</p>
+            <h3 className="hud-value">{highRisk}</h3>
           </div>
-          <div className="admin-stat-card">
-            <p className="stat-label">Repairs Planned</p>
-            <h3 className="stat-value">{data.summary.optimized_repairs}</h3>
+          <div className="hud-card">
+            <p className="hud-label">Scheduled Repairs</p>
+            <h3 className="hud-value">{data.summary.optimized_repairs}</h3>
           </div>
-          <div className="admin-stat-card">
-            <p className="stat-label">Average Depth</p>
-            <h3 className="stat-value">{avgDepth} <span className="text-sm text-muted">cm</span></h3>
+          <div className="hud-card">
+            <p className="hud-label">Avg Depth</p>
+            <h3 className="hud-value">{avgDepth} <span>cm</span></h3>
           </div>
         </div>
 
-        {/* WORKSPACE AREA */}
-        <div className="admin-workspace">
-          <div className="workspace-header">
-            <div className="segmented-control">
-              <button className={view === "map" ? "active" : ""} onClick={() => setView("map")}>
-                🗺️ AI Map Intelligence
-              </button>
-              <button className={view === "table" ? "active" : ""} onClick={() => setView("table")}>
-                📋 Detection Logs
-              </button>
-            </div>
+        {/* WORKSPACE */}
+        <div className="soc-workspace">
+          <div className="workspace-tabs">
+            <button className={`tab-btn ${view === "map" ? "active" : ""}`} onClick={() => setView("map")}>
+              LIVE MAP
+            </button>
+            <button className={`tab-btn ${view === "table" ? "active" : ""}`} onClick={() => setView("table")}>
+              DETECTION LOGS
+            </button>
           </div>
 
-          <div className="workspace-content">
+          <div className="workspace-view">
             {view === "map" ? (
-              <MapContainer
-                center={[13.0827, 80.2707]}
-                zoom={14}
-                style={{ height: "100%", width: "100%", borderRadius: "0 0 16px 16px" }}
-              >
+              <MapContainer center={[13.0827, 80.2707]} zoom={14} style={{ height: "100%", width: "100%", background: "#0a0f1c" }}>
                 <MapFix />
-                {/* Dark mode map for better contrast with glowing markers */}
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                 {data.detections.map(d => (
                   <CircleMarker
                     key={d.id}
                     center={[d.lat, d.lng]}
-                    radius={d.risk_level === "High" ? 12 : 8}
+                    radius={d.risk_level === "High" ? 10 : 7}
                     pathOptions={{
-                      color: d.risk_level === "High" ? "#ff4b4b" : "#facc15",
-                      fillOpacity: 0.8,
+                      color: d.risk_level === "High" ? "#ef4444" : "#f59e0b",
+                      fillColor: d.risk_level === "High" ? "#ef4444" : "#f59e0b",
+                      fillOpacity: 0.6,
                       weight: 2
                     }}
                   >
-                    <Popup className="dark-popup">
-                      <div className="popup-ai">
-                        {d.image_data && (
-                          <img src={d.image_data} alt="defect" onClick={() => setImage(d.image_data)} />
-                        )}
-                        <p><strong>ID:</strong> {d.id}</p>
-                        <p><strong>Depth:</strong> {d.depth_cm} cm</p>
-                        <p><strong>Cost:</strong> ₹{d.cost_inr}</p>
-                        <span className={`badge ${d.risk_level === "High" ? "badge-red" : "badge-yellow"}`}>
-                          {d.risk_level} Risk
-                        </span>
+                    <Popup className="soc-popup">
+                      <div className="popup-content">
+                        {d.image_data && <img src={d.image_data} alt="defect" onClick={() => setImage(d.image_data)} />}
+                        <div className="popup-details">
+                          <p><span>ID:</span> {d.id}</p>
+                          <p><span>Depth:</span> {d.depth_cm} cm</p>
+                          <p><span>Cost:</span> ₹{d.cost_inr}</p>
+                          <span className={`soc-tag ${d.risk_level === "High" ? "tag-red" : "tag-yellow"}`}>
+                            {d.risk_level} Risk
+                          </span>
+                        </div>
                       </div>
                     </Popup>
                   </CircleMarker>
                 ))}
               </MapContainer>
             ) : (
-              <div className="data-grid-wrapper">
-                <table className="data-grid">
+              <div className="soc-table-container">
+                <table className="soc-table">
                   <thead>
                     <tr>
-                      <th>Snapshot</th>
+                      <th>Image</th>
                       <th>Defect ID</th>
-                      <th>Depth (cm)</th>
-                      <th>Cost (INR)</th>
+                      <th>Depth</th>
+                      <th>Est. Cost</th>
                       <th>Severity</th>
                       <th>Source</th>
                     </tr>
@@ -208,26 +199,22 @@ export default function AdminDashboard() {
                       <tr key={d.id}>
                         <td>
                           {d.image_data ? (
-                            <img src={d.image_data} onClick={() => setImage(d.image_data)} alt="defect" className="table-thumb" />
-                          ) : (
-                            <div className="no-thumb">N/A</div>
-                          )}
+                            <img src={d.image_data} onClick={() => setImage(d.image_data)} alt="defect" className="thumb" />
+                          ) : <div className="no-thumb">-</div>}
                         </td>
-                        <td className="mono">{d.id}</td>
-                        <td>{d.depth_cm}</td>
-                        <td className="font-bold">₹{d.cost_inr}</td>
+                        <td className="font-mono">{d.id}</td>
+                        <td>{d.depth_cm} cm</td>
+                        <td className="cost-col">₹{d.cost_inr}</td>
                         <td>
-                          <span className={`badge ${d.risk_level === "High" ? "badge-red" : "badge-yellow"}`}>
+                          <span className={`soc-tag ${d.risk_level === "High" ? "tag-red" : "tag-yellow"}`}>
                             {d.risk_level}
                           </span>
                         </td>
-                        <td className="capitalize">{d.source.replace('_', ' ')}</td>
+                        <td className="source-col">{d.source.replace('_', ' ')}</td>
                       </tr>
                     ))}
                     {data.detections.length === 0 && (
-                      <tr>
-                        <td colSpan="6" className="empty-state">No infrastructure data found.</td>
-                      </tr>
+                      <tr><td colSpan="6" className="empty-state">No active detections.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -237,11 +224,10 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* MODAL IMAGE VIEWER */}
+      {/* LIGHTBOX */}
       {image && (
-        <div className="image-viewer" onClick={() => setImage(null)}>
-          <img src={image} alt="analysis" />
-          <button className="close-viewer">×</button>
+        <div className="soc-lightbox" onClick={() => setImage(null)}>
+          <img src={image} alt="Enlarged defect" />
         </div>
       )}
     </div>
