@@ -150,10 +150,10 @@ export default function AdminDashboard() {
       />
     </div>
 
-    <label className="upload-btn">
+   {/* No longer needed <label className="upload-btn">
       {loading ? "Processing..." : "Upload Dashcam"}
       <input type="file" accept="video/*" onChange={uploadVideo} hidden />
-    </label>
+    </label> */}
 
     <button className="reset-btn" onClick={resetSystem}>
       Reset System
