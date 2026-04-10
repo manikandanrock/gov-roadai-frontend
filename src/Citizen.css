@@ -21,9 +21,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ---------------- CONTAINER ---------------- */
 .citizen-container {
   padding: 1.5rem;
-  max-width: 480px; /* Keeps it looking like a mobile app even on desktop */
+  max-width: 480px;
   margin: 0 auto;
   text-align: center;
   min-height: 100vh;
@@ -32,111 +33,208 @@ body {
   justify-content: center;
 }
 
+/* ---------------- HEADER ---------------- */
 .brand-header {
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 .brand-header h2 {
   font-size: 2rem;
   font-weight: 800;
-  margin: 0 0 0.5rem 0;
-  color: var(--text-main);
-  letter-spacing: -0.025em;
+  margin: 0;
 }
 
 .brand-header p {
-  margin: 0;
   color: var(--text-muted);
-  font-size: 1rem;
-  font-weight: 500;
 }
 
+/* ---------------- MODE SWITCH ---------------- */
+.mode-switch {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.mode-btn.active {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.mode-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* ---------------- CARD ---------------- */
 .upload-card {
   background: var(--card-bg);
-  padding: 2.5rem 1.5rem;
+  padding: 2rem 1.25rem;
   border-radius: 20px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
   border: 1px solid #e2e8f0;
   margin-bottom: 1.5rem;
 }
 
 .upload-card h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.35rem;
-  color: var(--text-main);
+  margin-bottom: 1rem;
 }
 
 .upload-card p {
   color: var(--text-muted);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  margin-bottom: 2rem;
 }
 
-/* Large, tap-friendly button for mobile users */
+/* ---------------- BUTTON ---------------- */
 .capture-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   background-color: var(--primary);
   color: white;
-  padding: 1.125rem 1.5rem;
+  padding: 1rem;
   border-radius: 14px;
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
   width: 100%;
-  box-sizing: border-box;
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
-  border: none; /* Prevents double-borders on native rendering */
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.capture-btn:hover {
+  background-color: var(--primary-hover);
 }
 
 .capture-btn:active {
-  background-color: var(--primary-hover);
   transform: scale(0.97);
 }
 
 .capture-btn.disabled {
   background-color: #93c5fd;
   cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
 }
 
-/* Status Message Animations & Colors */
-.status-message {
-  padding: 1.25rem;
-  border-radius: 14px;
+/* ---------------- IMAGE ---------------- */
+.preview-img {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+  max-height: 300px;
+  object-fit: cover;
+}
+
+/* ---------------- LOCATION CARD ---------------- */
+.location-box {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.location-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.location-coords {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* ---------------- VIDEO STATUS ---------------- */
+.video-status {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  margin-top: 10px;
+}
+
+.gps-tracking {
+  color: #16a34a;
   font-weight: 600;
-  font-size: 0.95rem;
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  margin-top: 8px;
 }
 
-.status-message.info { background-color: var(--info-bg); color: var(--info-text); }
-.status-message.success { background-color: var(--success-bg); color: var(--success-text); }
-.status-message.error { background-color: var(--error-bg); color: var(--error-text); }
+.gps-last {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
-/* Loading Spinner */
+/* ---------------- STATUS MESSAGE ---------------- */
+.status-message {
+  padding: 1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  animation: slideUp 0.3s ease;
+  margin-top: 10px;
+}
+
+.status-message.info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.status-message.success {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.status-message.error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+/* ---------------- SPINNER ---------------- */
 .spinner {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: 3px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
   border-top-color: white;
+  border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
+/* ---------------- ANIMATIONS ---------------- */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(15px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------- MOBILE POLISH ---------------- */
+@media (max-width: 480px) {
+  .upload-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .capture-btn {
+    font-size: 0.95rem;
+    padding: 0.9rem;
+  }
 }
