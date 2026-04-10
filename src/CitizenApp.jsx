@@ -65,6 +65,8 @@ const CitizenApp = () => {
         else preciseAddress = data.display_name.split(',').slice(0, 2).join(', ');
         
         setAddress(preciseAddress);
+      } else {
+        setAddress("Address lookup unavailable.");
       }
     } catch (err) {
       setAddress("Could not connect to map server.");
@@ -166,30 +168,122 @@ const CitizenApp = () => {
     }
   };
 
-  // --- PHOTO LOGIC (Unchanged) ---
+  // --- PHOTO LOGIC ---
   const handlePhotoCapture = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     resetApp();
-    setStatus({ type: "info", text: "Acquiring GPS Lock..." });
+    setStatus({ type: "info", text: "Acquiring GPS Lock (Please allow location)..." });
     setPhotoData({ file: file, previewUrl: URL.createObjectURL(file) });
 
     if ("geolocation" in navigator) {
+      const geoOptions = { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 };
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({ lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), accuracy: Math.round(pos.coords.accuracy) });
-          fetchAddress(pos.coords.latitude, pos.coords.longitude);
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), accuracy: Math.round(position.coords.accuracy) });
+          fetchAddress(lat, lng);
           setStatus({ type: "", text: "" }); 
         },
-        () => setStatus({ type: "error", text: "Could not get location." }),
-        { enableHighAccuracy: true }
+        (error) => {
+          let errorMsg = "Could not get your location.";
+          switch(error.code) {
+            case error.PERMISSION_DENIED: errorMsg = "GPS Denied. Please enable location permissions."; break;
+            case error.POSITION_UNAVAILABLE: errorMsg = "Location unavailable. Ensure GPS is on."; break;
+            case error.TIMEOUT: errorMsg = "GPS request timed out. Please step outside."; break;
+            default: break;
+          }
+          setStatus({ type: "error", text: errorMsg });
+          setPhotoData(null); 
+        },
+        geoOptions
       );
+    } else {
+      setStatus({ type: "error", text: "Geolocation is not supported by your browser." });
+      setPhotoData(null);
     }
   };
 
-  const runAIAnalysis = async () => { /* ... existing code ... */ };
-  const submitFinalReport = async () => { /* ... existing code ... */ };
+  const runAIAnalysis = async () => {
+    if (!photoData || !location) return;
+    setLoading(true);
+    setStatus({ type: "info", text: "Running YOLO Detection & Depth Estimation..." });
+    
+    const formData = new FormData();
+    formData.append("file", photoData.file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/analyze-pothole`, { method: "POST", body: formData });
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        setAiResults(data);
+        setStatus({ type: "", text: "" });
+      } else {
+        setStatus({ type: "error", text: "AI Engine returned an error." });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: "AI Engine connection failed." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitFinalReport = async () => {
+    setLoading(true);
+    setStatus({ type: "info", text: "Compressing & Submitting Report..." });
+
+    const formData = new FormData();
+    formData.append("lat", location.lat);
+    formData.append("lng", location.lng);
+    formData.append("depth_cm", aiResults.max_depth);
+    formData.append("kg_asphalt", aiResults.total_kg);
+    formData.append("cost_inr", aiResults.total_cost);
+    formData.append("risk_level", aiResults.severity);
+
+    // Compress Image
+    const compressImage = (base64Str) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64Str;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Optimal width for database storage
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Exporting at 0.7 quality to stay under backend payload limits
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+        };
+      });
+    };
+
+    try {
+      // Compress the base64 AI result image before appending to FormData
+      const compressedImg = await compressImage(aiResults.annotated_image);
+      formData.append("image_data", compressedImg); 
+
+      const response = await fetch(`${API_BASE_URL}/submit-citizen-report`, { 
+        method: "POST", 
+        body: formData 
+      });
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        setIsSubmitted(true);
+        setStatus({ type: "success", text: data.message });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: "Submission failed. Image payload might be too large." });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetApp = () => {
     setPhotoData(null);
@@ -288,8 +382,8 @@ const CitizenApp = () => {
             )}
           </>
         ) : (
-           /* ... Existing Photo JSX Render stays exactly the same ... */
-           !photoData ? (
+          /* PHOTO MODE RENDER */
+          !photoData ? (
             <>
               <h3>Report a Road Defect</h3>
               <p>Take a clear photo of the pothole. Our AI will analyze the depth and identify it.</p>
@@ -299,8 +393,62 @@ const CitizenApp = () => {
               </label>
             </>
           ) : (
-            /* ... Rest of existing photo logic UI ... */
-            <p>Photo loaded. <i>(Keep existing photo code here)</i></p>
+            <>
+              <h3>{aiResults ? "AI Detection Results" : "Review Photo"}</h3>
+              <img 
+                src={aiResults ? aiResults.annotated_image : photoData.previewUrl} 
+                alt="Defect analysis" 
+                style={{ width: '100%', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0', objectFit: 'cover', maxHeight: '300px' }} 
+              />
+              
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', textAlign: 'left', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong style={{ color: '#0f172a' }}>📍 Verified Location</strong>
+                  {location && (
+                    <span style={{ 
+                      fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', 
+                      backgroundColor: location.accuracy <= 25 ? '#d1fae5' : '#fef3c7', 
+                      color: location.accuracy <= 25 ? '#065f46' : '#b45309' 
+                    }}>
+                      ±{location.accuracy}m Precision
+                    </span>
+                  )}
+                </div>
+                
+                <div style={{ color: '#0f172a', fontWeight: '500', marginBottom: '4px', fontSize: '0.95rem' }}>
+                  {address || "Translating GPS to street address..."}
+                </div>
+                <div style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                  {location ? `GPS: ${location.lat}, ${location.lng}` : "Acquiring coordinates..."}
+                </div>
+              </div>
+
+              {aiResults && !isSubmitted && (
+                <div style={{ background: '#e0e7ff', padding: '15px', borderRadius: '8px', textAlign: 'left', border: '1px solid #c7d2fe', marginBottom: '15px' }}>
+                  <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Defects Found:</strong> {aiResults.defects_detected}</p>
+                  <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Severity:</strong> {aiResults.severity}</p>
+                  <p style={{ margin: '4px 0', color: '#0f172a' }}><strong>Est. Cost:</strong> ₹{aiResults.total_cost}</p>
+                </div>
+              )}
+
+              {isSubmitted ? (
+                <button onClick={resetApp} className="capture-btn" style={{ backgroundColor: '#10b981', border: 'none' }}>Report Another Defect</button>
+              ) : !aiResults ? (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={runAIAnalysis} disabled={loading || !location} className={`capture-btn ${loading || !location ? 'disabled' : ''}`} style={{ flex: 2, border: 'none' }}>
+                    {loading ? "Analyzing..." : "🔍 Run AI Analysis"}
+                  </button>
+                  <button onClick={resetApp} disabled={loading} className="capture-btn" style={{ flex: 1, backgroundColor: '#64748b', border: 'none' }}>Retake</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={submitFinalReport} disabled={loading} className={`capture-btn ${loading ? 'disabled' : ''}`} style={{ flex: 2, border: 'none', backgroundColor: '#8b5cf6' }}>
+                    {loading ? "Sending..." : "📤 Submit Report"}
+                  </button>
+                  <button onClick={resetApp} disabled={loading} className="capture-btn" style={{ flex: 1, backgroundColor: '#64748b', border: 'none' }}>Cancel</button>
+                </div>
+              )}
+            </>
           )
         )}
       </div>
