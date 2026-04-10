@@ -72,6 +72,18 @@ const CitizenApp = () => {
     return () => clearInterval(interval);
   }, [isRecording]);
 
+  // --- Auto-Dismiss Toast Messages ---
+  useEffect(() => {
+    // Only auto-dismiss success and error messages so 'info' (loading) states stay visible
+    if (status.text && status.type !== 'info') {
+      const timer = setTimeout(() => {
+        setStatus({ type: "", text: "" });
+      }, 4000); 
+
+      return () => clearTimeout(timer);
+    }
+  }, [status.text, status.type]);
+
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
