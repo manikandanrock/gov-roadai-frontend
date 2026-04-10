@@ -4,8 +4,21 @@ import './Citizen.css';
 
 const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
+// --- High Precision Speed Utility ---
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (val) => (val * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in meters
+};
+
 const CitizenApp = () => {
-  const [mode, setMode] = useState("photo"); // "photo" or "video"
+  const [mode, setMode] = useState("photo"); 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", text: "" });
   
@@ -21,7 +34,7 @@ const CitizenApp = () => {
   // Live Video State
   const [cameraActive, setCameraActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0); // Live Timer
+  const [recordingTime, setRecordingTime] = useState(0); 
   
   // Refs
   const videoRef = useRef(null);
@@ -33,6 +46,9 @@ const CitizenApp = () => {
   const telemetryLogRef = useRef([]);
   const isRecordingRef = useRef(false);
 
+  // Advanced Speed Tracking Refs
+  const lastPosRef = useRef(null);
+
   // --- Utility: Native Haptic Feedback ---
   const triggerHaptic = (type = 'light') => {
     if (!navigator.vibrate) return;
@@ -41,13 +57,11 @@ const CitizenApp = () => {
     if (type === 'success') navigator.vibrate([30, 40, 30, 40, 50]);
   };
 
-  // --- Clean up streams when changing modes or unmounting ---
   useEffect(() => {
     if (mode !== 'video') stopCameraAndGPS();
     return () => stopCameraAndGPS();
   }, [mode]);
 
-  // --- Live Timer Logic ---
   useEffect(() => {
     let interval;
     if (isRecording) {
@@ -76,6 +90,7 @@ const CitizenApp = () => {
     setCameraActive(false);
     setIsRecording(false);
     isRecordingRef.current = false;
+    lastPosRef.current = null; // Reset speed tracker
   };
 
   const fetchAddress = async (lat, lng) => {
@@ -93,20 +108,18 @@ const CitizenApp = () => {
         else preciseAddress = data.display_name.split(',').slice(0, 2).join(', ');
         
         setAddress(preciseAddress);
-      } else {
-        setAddress("Location pinned.");
       }
     } catch (err) {
-      setAddress("GPS coordinates locked.");
+      // Fail silently, keep current address if network drops
     }
   };
 
-  // --- LIVE VIDEO & GPS LOGIC ---
+  // --- LIVE VIDEO & ADVANCED GPS LOGIC ---
   const startLiveCamera = async () => {
     triggerHaptic();
     resetApp();
     try {
-      setStatus({ type: "info", text: "Initializing Live AI Vision..." });
+      setStatus({ type: "info", text: "Initializing Live AI Vision & GPS..." });
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: "environment", width: { ideal: 1280 } }, 
@@ -121,18 +134,48 @@ const CitizenApp = () => {
       if ("geolocation" in navigator) {
         watchIdRef.current = navigator.geolocation.watchPosition(
           (pos) => {
+            const now = Date.now();
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             const accuracy = Math.round(pos.coords.accuracy);
-            // Calculate speed in km/h
-            const speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
             
-            setLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), accuracy, speed });
+            // --- Custom High-Precision Speed Calculation ---
+            let currentSpeedKmh = 0;
+            
+            if (lastPosRef.current) {
+              const timeDiff = (now - lastPosRef.current.time) / 1000; // in seconds
+              
+              if (timeDiff > 0) {
+                const distanceMeters = calculateDistance(
+                  lastPosRef.current.lat, lastPosRef.current.lng, 
+                  lat, lng
+                );
+                
+                // Only calculate if accuracy is decent, else assume standing still/coasting
+                if (accuracy < 30) {
+                  currentSpeedKmh = (distanceMeters / timeDiff) * 3.6; 
+                }
+              }
+            }
+
+            // Exponential Moving Average (Smoothing)
+            // 30% new reading, 70% old reading. Prevents wild jumping.
+            const smoothedSpeed = lastPosRef.current 
+              ? (0.3 * currentSpeedKmh) + (0.7 * lastPosRef.current.rawSpeed)
+              : currentSpeedKmh;
+
+            // Deadzone: If moving less than 3km/h, assume we are stopped at a light (GPS drift)
+            const displaySpeed = smoothedSpeed < 3.0 ? 0 : Math.round(smoothedSpeed);
+
+            lastPosRef.current = { lat, lng, time: now, rawSpeed: smoothedSpeed };
+
+            setLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), accuracy, speed: displaySpeed });
+            
             if (!address) fetchAddress(lat, lng);
 
             if (isRecordingRef.current && recordingStartTimeRef.current) {
-              const timeOffset = Date.now() - recordingStartTimeRef.current;
-              telemetryLogRef.current.push({ timeOffset, lat, lng, accuracy, speed });
+              const timeOffset = now - recordingStartTimeRef.current;
+              telemetryLogRef.current.push({ timeOffset, lat, lng, accuracy, speed: displaySpeed });
             }
           },
           (err) => console.error("GPS Watch Error:", err),
@@ -259,7 +302,7 @@ const CitizenApp = () => {
   const submitFinalReport = async () => {
     triggerHaptic();
     setLoading(true);
-    setStatus({ type: "info", text: "Submitting report to GovRoad authorities..." });
+    setStatus({ type: "info", text: "Submitting report to authorities..." });
 
     const formData = new FormData();
     formData.append("lat", location.lat);
