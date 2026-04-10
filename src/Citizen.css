@@ -30,10 +30,34 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative; /* Allows absolute positioning for the back button */
 }
 
+/* --- Top Navigation --- */
+.top-nav {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+}
+
+.back-link {
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.back-link:hover {
+  color: var(--text-main);
+}
+
+/* --- Brand Header --- */
 .brand-header {
   margin-bottom: 2.5rem;
+  margin-top: 2rem;
 }
 
 .brand-header h2 {
@@ -51,6 +75,33 @@ body {
   font-weight: 500;
 }
 
+/* --- Mode Toggle Controls --- */
+.mode-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.mode-btn {
+  padding: 0.65rem 1.25rem;
+  border-radius: 20px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background-color: #e2e8f0;
+  color: #475569;
+  transition: all 0.2s ease;
+}
+
+.mode-btn.active {
+  background-color: var(--primary);
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+}
+
+/* --- Upload Card --- */
 .upload-card {
   background: var(--card-bg);
   padding: 2.5rem 1.5rem;
@@ -58,6 +109,8 @@ body {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
   border: 1px solid #e2e8f0;
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .upload-card h3 {
@@ -73,7 +126,46 @@ body {
   margin-bottom: 2rem;
 }
 
-/* Large, tap-friendly button for mobile users */
+.preview-image {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid #e2e8f0;
+  object-fit: cover;
+  max-height: 300px;
+}
+
+/* --- Data Cards (Location & AI Results) --- */
+.location-card {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+}
+
+.ai-results-card {
+  background: var(--info-bg);
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: left;
+  border: 1px solid #c7d2fe;
+  margin-bottom: 1rem;
+}
+
+.ai-results-card p {
+  margin: 0.25rem 0;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+
+/* --- Buttons --- */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .capture-btn {
   display: flex;
   align-items: center;
@@ -90,22 +182,29 @@ body {
   width: 100%;
   box-sizing: border-box;
   box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
-  border: none; /* Prevents double-borders on native rendering */
+  border: none;
 }
 
+.capture-btn.secondary { background-color: #64748b; box-shadow: none; }
+.capture-btn.success { background-color: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.4); }
+.capture-btn.accent { background-color: #8b5cf6; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.4); }
+
+.capture-btn.flex-1 { flex: 1; }
+.capture-btn.flex-2 { flex: 2; }
+
 .capture-btn:active {
-  background-color: var(--primary-hover);
   transform: scale(0.97);
 }
 
 .capture-btn.disabled {
-  background-color: #93c5fd;
+  background-color: #cbd5e1;
+  color: #94a3b8;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
 }
 
-/* Status Message Animations & Colors */
+/* --- Status Messages & Animations --- */
 .status-message {
   padding: 1.25rem;
   border-radius: 14px;
@@ -122,7 +221,6 @@ body {
 .status-message.success { background-color: var(--success-bg); color: var(--success-text); }
 .status-message.error { background-color: var(--error-bg); color: var(--error-text); }
 
-/* Loading Spinner */
 .spinner {
   width: 22px;
   height: 22px;
