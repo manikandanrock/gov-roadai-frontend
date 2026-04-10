@@ -28,6 +28,11 @@ const CitizenApp = () => {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const watchIdRef = useRef(null);
+  
+  // Refs for Dashcam Telemetry Sync
+  const recordingStartTimeRef = useRef(null);
+  const telemetryLogRef = useRef([]);
+  const isRecordingRef = useRef(false);
 
   // --- Clean up streams when changing modes or unmounting ---
   useEffect(() => {
@@ -48,6 +53,7 @@ const CitizenApp = () => {
     }
     setCameraActive(false);
     setIsRecording(false);
+    isRecordingRef.current = false;
   };
 
   const fetchAddress = async (lat, lng) => {
@@ -96,16 +102,30 @@ const CitizenApp = () => {
           (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
+            const accuracy = Math.round(pos.coords.accuracy);
+            
             setLocation({ 
               lat: lat.toFixed(6), 
               lng: lng.toFixed(6), 
-              accuracy: Math.round(pos.coords.accuracy) 
+              accuracy: accuracy 
             });
+            
             // Only fetch street address occasionally to save API calls
             if (!address) fetchAddress(lat, lng);
+
+            // Log Exact Telemetry if recording is active
+            if (isRecordingRef.current && recordingStartTimeRef.current) {
+              const timeOffset = Date.now() - recordingStartTimeRef.current;
+              telemetryLogRef.current.push({
+                timeOffset: timeOffset,
+                lat: lat,
+                lng: lng,
+                accuracy: accuracy
+              });
+            }
           },
           (err) => console.error("GPS Watch Error:", err),
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
         );
       } else {
         setStatus({ type: "error", text: "Geolocation is not supported by your browser." });
@@ -118,6 +138,8 @@ const CitizenApp = () => {
 
   const startRecording = () => {
     chunksRef.current = [];
+    telemetryLogRef.current = []; // Clear old logs
+    
     const recorder = new MediaRecorder(streamRef.current);
     
     recorder.ondataavailable = (e) => {
@@ -125,18 +147,23 @@ const CitizenApp = () => {
     };
     
     recorder.onstop = handleLiveVideoUpload;
-    recorder.start();
     
-    mediaRecorderRef.current = recorder;
+    // Set recording state BEFORE starting to ensure we catch frame 0
+    isRecordingRef.current = true;
     setIsRecording(true);
+    recordingStartTimeRef.current = Date.now();
+    
+    recorder.start();
+    mediaRecorderRef.current = recorder;
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      isRecordingRef.current = false; // Stop logging GPS instantly
       mediaRecorderRef.current.stop(); // Triggers the onstop event
       setIsRecording(false);
       setLoading(true);
-      setStatus({ type: "info", text: "Analyzing Dashcam Footage..." });
+      setStatus({ type: "info", text: "Syncing Telemetry & Analyzing Dashcam..." });
       stopCameraAndGPS();
     }
   };
@@ -147,6 +174,7 @@ const CitizenApp = () => {
     
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("telemetry", JSON.stringify(telemetryLogRef.current));
 
     try {
       const response = await fetch(`${API_BASE_URL}/analyze-infrastructure`, {
@@ -156,7 +184,7 @@ const CitizenApp = () => {
       const data = await response.json();
       
       if (data.status === "success") {
-        setStatus({ type: "success", text: "Footage processed! Defects plotted on Command Center Map." });
+        setStatus({ type: "success", text: `Scan complete! Logged ${data.defects_logged || 0} defects with precision GPS.` });
         setIsSubmitted(true);
       } else {
         setStatus({ type: "error", text: "Video processing failed." });
@@ -276,7 +304,7 @@ const CitizenApp = () => {
       
       if (data.status === "success") {
         setIsSubmitted(true);
-        setStatus({ type: "success", text: data.message });
+        setStatus({ type: "success", text: data.message || "Report submitted successfully." });
       }
     } catch (err) {
       setStatus({ type: "error", text: "Submission failed. Image payload might be too large." });
