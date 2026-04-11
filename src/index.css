@@ -111,3 +111,94 @@ body {
   outline: 2px solid var(--primary);
   border-color: transparent;
 }
+
+/* =========================================================
+   SETTINGS / ENGINE CONFIG VIEW FIXES
+========================================================= */
+.settings-view {
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.settings-header {
+  margin-bottom: 2rem;
+}
+
+.settings-header h3 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--soc-text-main);
+  margin-bottom: 0.5rem;
+}
+
+.settings-header p {
+  color: var(--soc-text-muted);
+  font-size: 0.95rem;
+}
+
+.settings-form {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background: var(--soc-bg-panel);
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid var(--soc-border);
+  /* Removes the ugly middle scrollbar */
+  overflow: visible; 
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setting-group label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--soc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.setting-group input {
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--soc-border);
+  background: var(--soc-bg-input);
+  color: var(--soc-text-main);
+  font-size: 1rem;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.setting-group input:focus {
+  border-color: var(--soc-brand);
+  box-shadow: 0 0 0 3px var(--soc-brand-light);
+}
+
+.save-settings-btn {
+  margin-top: 1rem;
+  background: var(--soc-brand);
+  color: white;
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-settings-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px var(--soc-brand-light);
+}
