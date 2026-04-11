@@ -176,21 +176,42 @@ export default function AdminDashboard() {
           )}
 
           {!loading && view === 'settings' && (
-             <div className="table-wrapper" style={{maxWidth: '600px'}}>
-               <h3 style={{marginBottom: '1.5rem'}}>Financial & Material Constants</h3>
-               <form onSubmit={saveSettings} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-                  <div><label className="res-label">Material Cost (₹/kg)</label><input type="number" className="form-input" value={settings.material_cost_kg} onChange={e => setSettings({...settings, material_cost_kg: e.target.value})} /></div>
-                  <div><label className="res-label">Labor Cost (₹/sqm)</label><input type="number" className="form-input" value={settings.labor_cost_sqm} onChange={e => setSettings({...settings, labor_cost_sqm: e.target.value})} /></div>
-                  <div><label className="res-label">Vehicle Overhead (₹)</label><input type="number" className="form-input" value={settings.vehicle_overhead} onChange={e => setSettings({...settings, vehicle_overhead: e.target.value})} /></div>
-                  <div><label className="res-label">Admin Overhead (%)</label><input type="number" step="0.01" className="form-input" value={settings.admin_overhead_pct} onChange={e => setSettings({...settings, admin_overhead_pct: e.target.value})} /></div>
-                  <button type="submit" className="btn-modern btn-primary">Update Constants</button>
-               </form>
-               <hr style={{margin: '2rem 0', borderColor: 'var(--border-light)'}}/>
-               <button onClick={clearDatabase} className="btn-modern" style={{background: 'var(--danger-bg)', color: 'var(--danger)', width: '100%'}}>⚠️ Clear Database</button>
+             <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflowY: 'auto', height: '100%' }}>
+               
+               {/* Financial Settings Card */}
+               <div className="card-modern" style={{ width: '100%', maxWidth: '600px', padding: '2rem' }}>
+                 <h3 style={{marginBottom: '0.5rem'}}>Financial & Material Constants</h3>
+                 <p style={{color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem'}}>Adjust global repair costs. AI will recalculate budget impact instantly.</p>
+                 
+                 <form onSubmit={saveSettings} style={{display: 'flex', flexDirection: 'column', gap: '1.25rem'}}>
+                    <div>
+                      <label className="res-label" style={{fontWeight: '600', fontSize: '0.85rem'}}>Material Cost (₹/kg)</label>
+                      <input type="number" className="form-input" value={settings.material_cost_kg} onChange={e => setSettings({...settings, material_cost_kg: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="res-label" style={{fontWeight: '600', fontSize: '0.85rem'}}>Labor Cost (₹/sqm)</label>
+                      <input type="number" className="form-input" value={settings.labor_cost_sqm} onChange={e => setSettings({...settings, labor_cost_sqm: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="res-label" style={{fontWeight: '600', fontSize: '0.85rem'}}>Vehicle Overhead (₹)</label>
+                      <input type="number" className="form-input" value={settings.vehicle_overhead} onChange={e => setSettings({...settings, vehicle_overhead: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="res-label" style={{fontWeight: '600', fontSize: '0.85rem'}}>Admin Overhead (%)</label>
+                      <input type="number" step="0.01" className="form-input" value={settings.admin_overhead_pct} onChange={e => setSettings({...settings, admin_overhead_pct: e.target.value})} />
+                    </div>
+                    <button type="submit" className="btn-modern btn-primary" style={{marginTop: '0.5rem'}}>Update Constants</button>
+                 </form>
+               </div>
+
+               {/* Danger Zone Card */}
+               <div className="card-modern" style={{ width: '100%', maxWidth: '600px', padding: '1.5rem', marginTop: '1.5rem', border: '1px solid var(--danger-bg)' }}>
+                 <h4 style={{color: 'var(--danger)', marginBottom: '0.5rem'}}>Danger Zone</h4>
+                 <p style={{color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.85rem'}}>This action will permanently delete all defect records from the database. This cannot be undone.</p>
+                 <button onClick={clearDatabase} className="btn-modern" style={{background: 'var(--danger-bg)', color: 'var(--danger)', width: '100%'}}>
+                   ⚠️ Clear All Database Records
+                 </button>
+               </div>
+
              </div>
           )}
-        </section>
-      </main>
-    </div>
-  );
-}
