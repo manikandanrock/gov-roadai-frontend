@@ -1,252 +1,415 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import './index.css';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  MapPin, CheckCircle, Video, Camera, UploadCloud, 
+  AlertCircle, X, Square, ArrowLeft, RefreshCw, Info
+} from 'lucide-react';
 import './Citizen.css';
 
-const API_BASE = "https://maniiiikk-roadgovai.hf.space/api/v1"; 
+const API_BASE = 'https://maniiiikk-roadgovai.hf.space/api/v1';
 
-const CitizenApp = () => {
-  const [activeMode, setActiveMode] = useState('photo'); // 'photo' | 'dashcam'
+// --- Utility: Smart Image Compression ---
+async function compressImage(file) {
+  const MAX_WIDTH = 1920;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.85);
+      };
+    };
+  });
+}
 
-  // --- STATES ---
-  const [step, setStep] = useState(1);
-  const [photoFile, setPhotoFile] = useState(null);
+export default function CitizenApp() {
+  // --- Core State ---
+  const [mode, setMode] = useState('photo'); // 'photo' | 'dashcam'
+  const [step, setStep] = useState('capture'); // 'capture' | 'analyzing' | 'review' | 'success'
+  const [gps, setGps] = useState({ lat: null, lng: null, accuracy: null, locked: false });
+  const [locationName, setLocationName] = useState(null);
+  const [error, setError] = useState(() => navigator.geolocation ? null : 'GPS is not supported by your device.');
+
+  // --- Media & Analysis State ---
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [aiResults, setAiResults] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [analysisData, setAnalysisData] = useState(null);
+  const [evidenceFile, setEvidenceFile] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [dashcamStatus, setDashcamStatus] = useState("Idle");
-  const [currentGps, setCurrentGps] = useState({ lat: 13.0827, lng: 80.2707 }); // Default Chennai
+  const [recordTime, setRecordTime] = useState(0);
+  const [serverMessage, setServerMessage] = useState(null); // Tracks duplicate/update messages
 
+  // --- Refs ---
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const recordedChunks = useRef([]);
-  const telemetryData = useRef([]);
-  const timerInterval = useRef(null);
-  const startTimeRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const navigate = useNavigate();
 
-  // --- GPS Tracking ---
+  // --- 1. Live GPS Tracking & Reverse Geocoding ---
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(
-        (pos) => setCurrentGps({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.log("GPS access denied, using defaults."),
-        { enableHighAccuracy: true }
-      );
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, locked: true }),
+      (err) => { console.warn(err); setGps(prev => ({ ...prev, locked: false })); },
+      { enableHighAccuracy: true, maximumAge: 0 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  useEffect(() => {
+    if (!gps.lat || !gps.lng) return;
+    const fetchLocationName = async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${gps.lat}&lon=${gps.lng}&format=json&addressdetails=1`);
+        const data = await res.json();
+        const address = data.address || {};
+        const localName = address.suburb || address.neighbourhood || address.city || address.town || address.road;
+        if (localName) setLocationName(localName);
+      } catch (err) { console.warn(err); }
+    };
+    const timeoutId = setTimeout(fetchLocationName, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [gps.lat, gps.lng]);
+
+  // --- 2. Camera Management ---
+  const stopCameraStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
   }, []);
 
-  // --- DASHCAM LOGIC ---
   useEffect(() => {
-    if (activeMode === 'dashcam') startCameraFeed();
-    else stopCameraFeed();
-    return () => stopCameraFeed();
-  }, [activeMode]);
+    let active = true;
+    if (mode === 'dashcam' && step === 'capture') {
+      (async () => {
+        if (!navigator.mediaDevices?.getUserMedia) return setError('Camera access denied.');
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false
+          });
+          if (!active) return;
+          streamRef.current = stream;
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        } catch (err) { if (active) setError('Camera access denied or unavailable.'); }
+      })();
+    } else {
+      stopCameraStream();
+    }
+    return () => { active = false; stopCameraStream(); };
+  }, [mode, step, stopCameraStream]);
 
-  const startCameraFeed = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) { setDashcamStatus("Camera Access Denied"); }
-  };
-
-  const stopCameraFeed = () => {
-    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    if (isRecording) stopRecording();
-  };
-
-  const startRecording = () => {
+  // --- 3. Capture & Recording Logic ---
+  const handleStartRecording = () => {
     if (!streamRef.current) return;
-    recordedChunks.current = [];
-    telemetryData.current = [];
-    startTimeRef.current = Date.now();
-    
+    recordedChunksRef.current = [];
     mediaRecorderRef.current = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
-    mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.current.push(e.data); };
-    mediaRecorderRef.current.onstop = handleDashcamUpload;
+    mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+    mediaRecorderRef.current.onstop = handleVideoUpload;
     mediaRecorderRef.current.start(1000);
-
     setIsRecording(true);
-    setDashcamStatus("Recording...");
-
-    timerInterval.current = setInterval(() => {
-      telemetryData.current.push({
-        timeOffset: Date.now() - startTimeRef.current,
-        lat: currentGps.lat,
-        lng: currentGps.lng
-      });
-    }, 1000);
+    setRecordTime(0);
+    timerRef.current = setInterval(() => setRecordTime(prev => prev + 1), 1000);
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) mediaRecorderRef.current.stop();
-    clearInterval(timerInterval.current);
-    setIsRecording(false);
-    setDashcamStatus("Uploading to Command Center...");
-  };
-
-  const handleDashcamUpload = async () => {
-    const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
-    const file = new File([blob], `dashcam_${Date.now()}.mp4`, { type: 'video/webm' });
-    
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("telemetry", JSON.stringify(telemetryData.current));
-
-    try {
-      const res = await fetch(`${API_BASE}/analyze-infrastructure`, { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.status === "success") setDashcamStatus(`Success! Logged ${data.logged} defects.`);
-      else setDashcamStatus("Upload Failed.");
-    } catch (err) { setDashcamStatus("Network Error."); }
-    setTimeout(() => setDashcamStatus("Idle"), 4000);
-  };
-
-  // --- PHOTO MODE LOGIC ---
-  const handlePhotoCapture = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setPhotoFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setStep(2); 
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      clearInterval(timerRef.current);
+      setIsRecording(false);
+      setStep('analyzing');
     }
   };
 
-  const runAIAnalysis = async () => {
-    if (!photoFile) return;
-    setIsProcessing(true);
+  const handleVideoUpload = async () => {
+    const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+    const file = new File([blob], 'dashcam_log.webm', { type: 'video/webm' });
+    setEvidenceFile(file);
+    
     const formData = new FormData();
-    formData.append("file", photoFile);
+    formData.append('file', file);
+    
+    const telemetryObj = [{ timeOffset: 0, lat: gps.lat, lng: gps.lng }];
+    formData.append('telemetry', JSON.stringify(telemetryObj));
 
     try {
-      const res = await fetch(`${API_BASE}/analyze-pothole`, { method: "POST", body: formData });
+      const res = await fetch(`${API_BASE}/analyze-infrastructure`, { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.status === "success") {
-        setAiResults(data);
-        setPreviewUrl(data.annotated_image); // Show bounding boxes
-      } else alert("AI Analysis failed.");
-    } catch (err) { alert("Cannot connect to AI server."); } 
-    finally { setIsProcessing(false); }
+      setAnalysisData(data);
+      setStep('review');
+    } catch (err) {
+      setError("Video analysis failed. Ensure the server is online.");
+      setStep('capture');
+    }
   };
 
-  const submitFinalReport = async () => {
-    setIsProcessing(true);
-    try {
-      // Must match Pydantic SingleReport Model exactly
-      const payload = {
-        lat: currentGps.lat,
-        lng: currentGps.lng,
-        image_data: previewUrl, 
-        depth_cm: aiResults.max_depth,
-        cost_inr: aiResults.total_cost,
-        risk_level: aiResults.severity,
-        source: "citizen_app"
-      };
+  const handlePhotoCapture = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setStep('analyzing');
+    setPreviewUrl(URL.createObjectURL(file));
 
-      const res = await fetch(`${API_BASE}/submit-report`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+    try {
+      const compressedImage = await compressImage(file);
+      setEvidenceFile(compressedImage);
+      const formData = new FormData();
+      formData.append('file', compressedImage);
+
+      const res = await fetch(`${API_BASE}/analyze-pothole`, { method: 'POST', body: formData });
+      const data = await res.json();
+      setAnalysisData(data);
+      if (data.annotated_image) setPreviewUrl(data.annotated_image);
+      setStep('review');
+    } catch (err) {
+      setError("AI Engine offline.");
+      setStep('capture');
+    }
+  };
+
+  // --- 4. Final Submission ---
+  const submitFinalReport = async () => {
+    if (!gps.lat || !gps.lng) return setError('Waiting for GPS lock.');
+
+    // --- CLIENT-SIDE ZERO-DEFECT GUARD ---
+    if (mode === 'photo' && (analysisData.severity === 'None' || analysisData.max_depth <= 0)) {
+        setError('Cannot submit: AI detected zero valid defects in this image.');
+        return;
+    }
+    
+    setStep('analyzing');
+    
+    // Dashcam mode is already processed directly in main.py
+    if (mode === 'dashcam') {
+        setTimeout(() => setStep('success'), 600);
+        return;
+    }
+
+    const payload = {
+      lat: Number(gps.lat),
+      lng: Number(gps.lng),
+      image_data: analysisData.annotated_image || "",
+      depth_cm: Number(analysisData.max_depth || 0),
+      cost_inr: Math.round(Number(analysisData.total_cost || 0)),
+      risk_level: analysisData.severity || 'Unknown',
+      source: 'citizen_app',
+      kg_asphalt: Number(analysisData.total_kg || 0)
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/submit-report`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      
+      // --- SMART ERROR PARSING ---
+      if (!res.ok) {
+        let errorMsg = 'Failed to sync with Gov servers.';
+        try {
+            const errorJson = await res.json();
+            errorMsg = errorJson.detail || errorMsg;
+        } catch {
+            errorMsg = await res.text() || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
 
+      // --- CAPTURE DUPLICATE/SUCCESS MESSAGES ---
       const data = await res.json();
-      if (data.status === "success") setStep(3);
-      else alert("Database save failed.");
-    } catch (err) { alert("Network Error."); } 
-    finally { setIsProcessing(false); }
+      if (data.message) {
+          setServerMessage(data.message);
+      }
+
+      setStep('success');
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+      setStep('review');
+    }
   };
 
-  const resetPhotoApp = () => { setPhotoFile(null); setPreviewUrl(null); setAiResults(null); setStep(1); };
+  const resetApp = () => {
+    setStep('capture'); setAnalysisData(null); setPreviewUrl(null); 
+    setEvidenceFile(null); setError(null); setRecordTime(0); setServerMessage(null);
+  };
 
+  const handleBack = () => {
+    if (mode === 'dashcam') stopCameraStream();
+    if (step !== 'capture') return resetApp();
+    navigate('/');
+  };
+
+  const formatTime = (secs) => `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`;
+
+  // --- RENDER ---
   return (
-    <div className="citizen-flow-container">
-      <header className="mobile-header" style={{flexDirection: 'column', alignItems: 'stretch', gap: '1rem'}}>
-        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-          <Link to="/" style={{textDecoration: 'none', fontSize: '1.5rem', color: 'var(--text-main)'}}>←</Link>
-          <h2 style={{fontSize: '1.2rem', margin: 0}}>Citizen Reporter</h2>
+    <div style={{ height: '100dvh', width: '100vw', display: 'flex', flexDirection: 'column', background: 'var(--background)', color: 'var(--text-main)', overflow: 'hidden' }}>
+      
+      {/* Toast Error Overlay */}
+      {error && (
+        <div className="error-toast" style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', zIndex: 100 }}>
+          <AlertCircle size={16} color="var(--danger)" /> <span style={{ flex: 1, fontSize: '0.85rem' }}>{error}</span>
+          <button onClick={() => setError(null)}><X size={16}/></button>
         </div>
-        <div className="mode-toggle">
-          <button className={`toggle-btn ${activeMode === 'photo' ? 'active' : ''}`} onClick={() => setActiveMode('photo')}>📸 Photo Mode</button>
-          <button className={`toggle-btn ${activeMode === 'dashcam' ? 'active' : ''}`} onClick={() => setActiveMode('dashcam')}>📹 Dashcam Mode</button>
+      )}
+
+      {/* FIXED HEADER */}
+      <header style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface)', borderBottom: '1px solid var(--border)', zIndex: 10 }}>
+        <button className="back-button" onClick={handleBack} style={{ padding: '0.5rem' }}>
+          <ArrowLeft size={20} />
+        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>Field Survey</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: gps.locked ? 'var(--success)' : 'var(--text-muted)' }}>
+            <MapPin size={10} /> {gps.locked ? (locationName || 'GPS Locked') : 'Locating...'}
+          </div>
         </div>
+        <div style={{ width: 36 }}>{/* Spacer for centering */}</div>
       </header>
 
-      <main className="main-content">
-        {/* --- PHOTO MODE VIEW --- */}
-        {activeMode === 'photo' && (
-          <>
-            {step === 1 && (
-              <div className="capture-card card-modern">
-                <div className="icon-hero">📸</div>
-                <h2>Capture Road Issue</h2>
-                <label className="btn-modern btn-primary btn-massive" style={{marginTop: '1rem'}}>
-                  Open Camera
-                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
-                </label>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="card-modern" style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-                <img src={previewUrl} alt="Hazard" className="ai-preview" />
-                {aiResults ? (
-                  <>
-                    <div className="results-grid">
-                      <div className="res-item"><span className="res-label">Severity</span><span className="badge badge-high">{aiResults.severity}</span></div>
-                      <div className="res-item"><span className="res-label">Depth</span><span className="res-value">{aiResults.max_depth} cm</span></div>
-                      <div className="res-item" style={{gridColumn: 'span 2'}}><span className="res-label">Repair Cost</span><span className="res-value">₹{aiResults.total_cost}</span></div>
-                    </div>
-                    <div style={{display: 'flex', gap: '1rem'}}>
-                      <button onClick={resetPhotoApp} className="btn-modern btn-secondary" style={{flex: 1}} disabled={isProcessing}>Retake</button>
-                      <button onClick={submitFinalReport} className="btn-modern btn-primary" style={{flex: 2}} disabled={isProcessing}>
-                        {isProcessing ? "Saving..." : "Submit to DB"}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <button onClick={runAIAnalysis} disabled={isProcessing} className="btn-modern btn-primary btn-massive">
-                    {isProcessing ? "Scanning Image..." : "🔍 Run AI Analysis"}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="capture-card card-modern">
-                <div className="icon-hero">✅</div>
-                <h2>Report Logged!</h2>
-                <button onClick={resetPhotoApp} className="btn-modern btn-primary btn-massive" style={{marginTop: '1rem'}}>Report Another</button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* --- DASHCAM MODE VIEW --- */}
-        {activeMode === 'dashcam' && (
-          <div className="dashcam-container card-modern">
-            <div className="video-wrapper">
-              <video ref={videoRef} autoPlay playsInline muted className="live-video" />
-              <div className="hud-overlay">
-                <div className={`rec-indicator ${isRecording ? 'pulse-red' : ''}`}>{isRecording ? "REC" : "STANDBY"}</div>
-                <div className="gps-data">GPS: {currentGps.lat.toFixed(4)}, {currentGps.lng.toFixed(4)}</div>
-              </div>
-            </div>
-            <div className="dashcam-controls" style={{textAlign: 'center'}}>
-              <p className="res-label" style={{marginBottom: '1rem'}}>{dashcamStatus}</p>
-              {!isRecording ? (
-                <button onClick={startRecording} className="btn-modern btn-massive" style={{background: 'var(--danger)', color: 'white'}}>⏺ Start Drive</button>
+      {/* DYNAMIC MAIN CONTENT */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflowY: 'auto' }}>
+        
+        {step === 'capture' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#000' }}>
+            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              {mode === 'dashcam' ? (
+                <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <button onClick={stopRecording} className="btn-modern btn-massive" style={{background: '#0f172a', color: 'white'}}>⏹ Stop & Upload</button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'rgba(255,255,255,0.4)', gap: '1rem' }}>
+                  <Camera size={64} strokeWidth={1} />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Align defect in frame</span>
+                </div>
+              )}
+              {isRecording && (
+                <div className="rec-overlay" style={{ top: 16, right: 16 }}>
+                  <span className="rec-dot" /> {formatTime(recordTime)}
+                </div>
               )}
             </div>
           </div>
         )}
+
+        {step === 'analyzing' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+            <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3, marginBottom: '1.5rem' }}></div>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Processing Data</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Running Gov-RoadAI infrastructure models...</p>
+          </div>
+        )}
+
+        {step === 'review' && analysisData && (
+          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ width: '100%', aspectRatio: '4/3', borderRadius: '16px', overflow: 'hidden', background: '#000' }}>
+              {mode === 'photo' ? (
+                <img src={previewUrl} alt="AI Processed" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', gap: '0.5rem' }}>
+                  <Video size={32} opacity={0.8} />
+                  <span style={{ fontSize: '0.85rem' }}>Dashcam Session ({formatTime(recordTime)})</span>
+                </div>
+              )}
+            </div>
+
+            <div className="result-card" style={{ padding: '1.25rem', borderRadius: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem' }}>{mode === 'photo' ? 'Analysis Results' : 'Processing Summary'}</h3>
+                {mode === 'photo' && (
+                  <span className={`severity-badge ${analysisData.severity?.toLowerCase() || 'medium'}`}>
+                    {analysisData.severity || 'Medium'}
+                  </span>
+                )}
+              </div>
+              
+              {mode === 'photo' ? (
+                <>
+                  <div className="data-row"><span>Est. Repair Cost</span> <span className="value">₹{analysisData.total_cost?.toLocaleString() || '0'}</span></div>
+                  <div className="data-row"><span>Defects Found</span> <span className="value">{analysisData.defects_detected || 0}</span></div>
+                  <div className="data-row" style={{ marginBottom: 0 }}><span>Max Depth</span> <span className="value">{analysisData.max_depth || 0} cm</span></div>
+                </>
+              ) : (
+                 <>
+                  <div className="data-row"><span>Status</span> <span className="value text-success">Synced to DB</span></div>
+                  <div className="data-row" style={{ marginBottom: 0 }}><span>Defects Logged</span> <span className="value">{analysisData.logged || 0}</span></div>
+                 </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === 'success' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+            <div className="success-icon-wrap" style={{ width: 80, height: 80, marginBottom: '1.5rem', background: serverMessage ? 'rgba(56, 189, 248, 0.12)' : 'rgba(16, 185, 129, 0.12)' }}>
+              {serverMessage ? <Info size={40} color="var(--info)" /> : <CheckCircle size={40} className="success-icon" />}
+            </div>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>
+              {serverMessage ? 'Duplicate Handled' : 'Report Submitted'}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              {serverMessage || 'Local authorities have been notified of the infrastructure defect.'}
+            </p>
+          </div>
+        )}
       </main>
+
+      {/* FIXED FOOTER ACTION BAR */}
+      <footer style={{ padding: '1rem', background: 'var(--surface)', borderTop: '1px solid var(--border)', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+        
+        {step === 'capture' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div className="capture-controls" style={{ padding: 0 }}>
+              {mode === 'photo' ? (
+                <label className="shutter-button photo" style={{ width: 72, height: 72 }}>
+                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
+                  <div className="shutter-inner" />
+                </label>
+              ) : (
+                <button className={`shutter-button video ${isRecording ? 'recording' : ''}`} onClick={isRecording ? handleStopRecording : handleStartRecording} style={{ width: 72, height: 72 }}>
+                  <div className="shutter-inner">{isRecording ? <Square size={20} color="white" fill="white" /> : <div className="vid-circle"/>}</div>
+                </button>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '99px', padding: '4px' }}>
+              <button onClick={() => setMode('photo')} style={{ padding: '8px 20px', borderRadius: '99px', border: 'none', background: mode === 'photo' ? 'var(--surface-alt)' : 'transparent', color: mode === 'photo' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Photo</button>
+              <button onClick={() => setMode('dashcam')} style={{ padding: '8px 20px', borderRadius: '99px', border: 'none', background: mode === 'dashcam' ? 'var(--surface-alt)' : 'transparent', color: mode === 'dashcam' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Dashcam</button>
+            </div>
+          </div>
+        )}
+
+        {step === 'review' && (
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn secondary" onClick={resetApp} style={{ flex: 1, padding: '14px', borderRadius: '12px' }}>
+              <RefreshCw size={18} /> Retake
+            </button>
+            
+            {/* Visually disable button if AI found 0 defects */}
+            <button 
+              className="btn primary" 
+              onClick={submitFinalReport} 
+              style={{ flex: 2, padding: '14px', borderRadius: '12px', opacity: (mode === 'photo' && analysisData?.severity === 'None') ? 0.5 : 1 }}
+            >
+              <UploadCloud size={18} /> Submit Report
+            </button>
+          </div>
+        )}
+
+        {step === 'success' && (
+          <button className="btn primary block" onClick={resetApp} style={{ margin: 0, padding: '16px', borderRadius: '12px' }}>
+            Start New Survey
+          </button>
+        )}
+
+      </footer>
     </div>
   );
-};
-
-export default CitizenApp;
+}
