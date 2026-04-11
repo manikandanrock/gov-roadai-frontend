@@ -10,7 +10,9 @@ const API_BASE = "https://maniiiikk-roadgovai.hf.space/api/v1";
 // Helper component to recenter map
 const MapFix = () => {
   const map = useMap();
-  useEffect(() => { setTimeout(() => { map.invalidateSize(); }, 300); }, [map]);
+  useEffect(() => { 
+    setTimeout(() => { map.invalidateSize(); }, 300); 
+  }, [map]);
   return null;
 };
 
@@ -41,7 +43,9 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [budget]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [budget]);
 
   // Handle Settings Update (Requires FormData for FastAPI)
   const saveSettings = async (e) => {
@@ -56,7 +60,9 @@ export default function AdminDashboard() {
       await fetch(`${API_BASE}/update-cost-settings`, { method: "POST", body: formData });
       fetchData(); // Refresh everything
       alert("Settings updated successfully.");
-    } catch(err) { alert("Failed to update settings."); }
+    } catch(err) { 
+      alert("Failed to update settings."); 
+    }
   };
 
   const clearDatabase = async () => {
@@ -215,3 +221,8 @@ export default function AdminDashboard() {
 
              </div>
           )}
+        </section>
+      </main>
+    </div>
+  );
+}
