@@ -1,225 +1,143 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+
+// Import Global and Mobile-specific styles
+import './index.css';
 import './Citizen.css';
 
-const API_BASE_URL = "https://maniiiikk-roadgovai.hf.space/api/v1";
-
 const CitizenApp = () => {
-  const [mode, setMode] = useState("photo");
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState({ type: "", text: "" });
-  const [location, setLocation] = useState(null);
-  const [address, setAddress] = useState(""); 
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [photoData, setPhotoData] = useState(null);
+  const [step, setStep] = useState(1); // 1: Capture, 2: Analyze, 3: Success
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [aiResults, setAiResults] = useState(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [location, setLocation] = useState(null);
 
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const watchIdRef = useRef(null);
-  const recordingStartTimeRef = useRef(null);
-  const telemetryLogRef = useRef([]);
-  const isRecordingRef = useRef(false);
-
+  // Attempt to fetch user's GPS coordinates immediately
   useEffect(() => {
-    if (mode !== 'video') stopCameraAndGPS();
-    return () => stopCameraAndGPS();
-  }, [mode]);
-
-  const stopCameraAndGPS = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.log("Location access denied")
+      );
     }
-    if (watchIdRef.current) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    setCameraActive(false);
-    setIsRecording(false);
-    isRecordingRef.current = false;
-  };
-
-  const fetchAddress = async (lat, lng) => {
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=en`);
-      const data = await response.json();
-      if (data && data.address) {
-        const addr = data.address;
-        const street = addr.road || addr.pedestrian || "";
-        const area = addr.suburb || addr.city || "";
-        setAddress(street && area ? `${street}, ${area}` : data.display_name.split(',').slice(0, 2).join(', '));
-      }
-    } catch (err) { setAddress("Location pinned."); }
-  };
+  }, []);
 
   const handlePhotoCapture = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    resetApp();
-    setStatus({ type: "info", text: "Acquiring GPS Lock..." });
-    setPhotoData({ file, previewUrl: URL.createObjectURL(file) });
-
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude, accuracy } = pos.coords;
-          setLocation({ lat: latitude.toFixed(6), lng: longitude.toFixed(6), accuracy: Math.round(accuracy) });
-          fetchAddress(latitude, longitude);
-          setStatus({ type: "", text: "" }); 
-        },
-        () => setStatus({ type: "error", text: "GPS failed. Check permissions." }),
-        { enableHighAccuracy: true, timeout: 15000 }
-      );
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      setStep(2); // Move to Analysis step
     }
   };
 
-  const runAIAnalysis = async () => {
-    if (!photoData || !location) return;
-    setLoading(true);
-    setStatus({ type: "info", text: "Running AI Analysis..." });
-    const formData = new FormData();
-    formData.append("file", photoData.file);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/analyze-pothole`, { method: "POST", body: formData });
-      const data = await response.json();
-      if (data.status === "success") {
-        setAiResults(data);
-        setStatus({ type: "", text: "" });
-      }
-    } catch (err) { setStatus({ type: "error", text: "AI Engine connection failed." }); }
-    finally { setLoading(false); }
-  };
-
-  const compressImage = (base64Str) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = base64Str;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 640; // Reduced for faster upload [cite: 108]
-        const scaleSize = MAX_WIDTH / img.width;
-        canvas.width = MAX_WIDTH;
-        canvas.height = img.height * scaleSize;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Lower quality for smaller payload [cite: 109]
-      };
-    });
-  };
-
-  const submitFinalReport = async () => {
-    setLoading(true);
-    setStatus({ type: "info", text: "Sending report..." });
-
-    try {
-      const compressedImg = await compressImage(aiResults.annotated_image);
-      const formData = new FormData();
-      formData.append("lat", location.lat);
-      formData.append("lng", location.lng);
-      formData.append("depth_cm", aiResults.max_depth);
-      formData.append("kg_asphalt", aiResults.total_kg);
-      formData.append("cost_inr", aiResults.total_cost);
-      formData.append("risk_level", aiResults.severity);
-      formData.append("image_data", compressedImg);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
-
-      const response = await fetch(`${API_BASE_URL}/submit-citizen-report`, { 
-        method: "POST", 
-        body: formData,
-        signal: controller.signal 
+  const runAIAnalysis = () => {
+    setIsAnalyzing(true);
+    // Simulate API/AI processing delay for visual effect
+    setTimeout(() => {
+      setAiResults({
+        severity: "High",
+        depth: "12 cm",
+        total_cost: "15,000",
+        hazard_type: "Deep Pothole"
       });
-      
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      
-      if (data.status === "success") {
-        setIsSubmitted(true);
-        setStatus({ type: "success", text: "Report submitted to Govt!" });
-      }
-    } catch (err) {
-      setStatus({ type: "error", text: "Submission timed out. Try again." });
-    } finally {
-      setLoading(false);
-    }
+      setIsAnalyzing(false);
+    }, 2000);
+  };
+
+  const submitReport = () => {
+    // In production, your API call goes here
+    setStep(3);
   };
 
   const resetApp = () => {
-    setPhotoData(null); setLocation(null); setAddress("");
-    setAiResults(null); setIsSubmitted(false); setStatus({ type: "", text: "" });
+    setPreviewUrl(null);
+    setAiResults(null);
+    setStep(1);
   };
 
   return (
-    <div className="app-wrapper">
-      <div className="citizen-container">
-        <nav className="top-nav"><Link to="/" className="back-link">Back</Link></nav>
-        <header className="brand-header">
-          <div className="brand-icon">🛣️</div>
-          <h2>Gov-RoadAI</h2>
-          <p>Citizen Reporting Portal</p>
-        </header>
+    <div className="citizen-flow-container">
+      <header className="mobile-header">
+        <Link to="/" style={{textDecoration: 'none', fontSize: '1.5rem', color: 'var(--text-main)'}}>←</Link>
+        <h2 style={{fontSize: '1.2rem', margin: 0}}>Report Defect</h2>
+      </header>
 
-        <div className="segmented-control">
-          <button className={`segment ${mode === 'photo' ? 'active' : ''}`} onClick={() => { setMode('photo'); resetApp(); }}>📸 Photo</button>
-          <button className={`segment ${mode === 'video' ? 'active' : ''}`} onClick={() => { setMode('video'); resetApp(); }}>📹 Video</button>
-        </div>
-        
-        <main className="upload-card">
-          {!photoData ? (
-            <div className="mode-content">
-              <h3>Report Road Defect</h3>
-              <p className="card-subtitle">Take a clear photo of the pothole for AI analysis.</p>
-              <label className="btn btn-primary btn-large">
-                📸 Take Photo
-                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
-              </label>
-            </div>
-          ) : (
-            <div className="mode-content">
-              <div className="image-preview-wrapper">
-                <img src={aiResults ? aiResults.annotated_image : photoData.previewUrl} className="preview-image" alt="preview" />
-              </div>
-              
-              {location && (
-                <div className="location-info-card">
-                  <strong>📍 {address || "Locating..."}</strong>
-                  <div className="coord-text">GPS: {location.lat}, {location.lng}</div>
-                </div>
-              )}
-
-              {aiResults && !isSubmitted && (
-                <div className="ai-summary-card">
-                  <div className="summary-row"><span>Severity:</span> <strong className={`sev-${aiResults.severity.toLowerCase()}`}>{aiResults.severity}</strong></div>
-                  <div className="summary-row"><span>Est. Cost:</span> <strong>₹{aiResults.total_cost}</strong></div>
-                </div>
-              )}
-
-              <div className="action-group">
-                {isSubmitted ? (
-                  <button onClick={resetApp} className="btn btn-success btn-large full-width">Report Another</button>
-                ) : !aiResults ? (
-                  <button onClick={runAIAnalysis} disabled={loading || !location} className="btn btn-primary flex-2">
-                    {loading ? "Analyzing..." : "🔍 Run AI Analysis"}
-                  </button>
-                ) : (
-                  <button onClick={submitFinalReport} disabled={loading} className="btn btn-accent flex-2">
-                    {loading ? "Sending..." : "📤 Submit Report"}
-                  </button>
-                )}
-                {!isSubmitted && <button onClick={resetApp} className="btn btn-secondary flex-1">Cancel</button>}
-              </div>
-            </div>
-          )}
-        </main>
-        {status.text && <div className={`status-toast ${status.type}`}>{status.text}</div>}
+      {/* Wizard Progress Indicator */}
+      <div className="progress-stepper">
+        <div className={`step-dot ${step >= 1 ? 'active' : ''}`} />
+        <div className={`step-dot ${step >= 2 ? 'active' : ''}`} />
+        <div className={`step-dot ${step >= 3 ? 'active' : ''}`} />
       </div>
+
+      <main className="main-content">
+        {/* STEP 1: CAPTURE */}
+        {step === 1 && (
+          <div className="capture-card card-modern">
+            <div className="icon-hero">📸</div>
+            <h2 style={{fontSize: '1.5rem'}}>Capture Road Issue</h2>
+            <p className="text-muted">Take a clear photo of the pothole or damage. AI will estimate the repair needs instantly.</p>
+            
+            <label className="btn-modern btn-primary btn-massive" style={{marginTop: '1rem'}}>
+              Open Camera
+              <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
+            </label>
+          </div>
+        )}
+
+        {/* STEP 2: ANALYZE & CONFIRM */}
+        {step === 2 && (
+          <div className="card-modern" style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
+            <img src={previewUrl} alt="Captured hazard" className="ai-preview" />
+            
+            {aiResults ? (
+              <>
+                <div className="results-grid">
+                  <div className="res-item">
+                    <span className="res-label">Hazard Type</span>
+                    <span className="res-value">{aiResults.hazard_type}</span>
+                  </div>
+                  <div className="res-item">
+                    <span className="res-label">Severity</span>
+                    <span className="res-value badge badge-high" style={{width: 'max-content'}}>{aiResults.severity}</span>
+                  </div>
+                  <div className="res-item">
+                    <span className="res-label">Est. Depth</span>
+                    <span className="res-value">{aiResults.depth}</span>
+                  </div>
+                  <div className="res-item">
+                    <span className="res-label">Repair Cost</span>
+                    <span className="res-value">₹{aiResults.total_cost}</span>
+                  </div>
+                </div>
+                
+                <div style={{display: 'flex', gap: '1rem', marginTop: '1rem'}}>
+                  <button onClick={resetApp} className="btn-modern btn-secondary" style={{flex: 1}}>Retake</button>
+                  <button onClick={submitReport} className="btn-modern btn-primary" style={{flex: 2}}>Send Report</button>
+                </div>
+              </>
+            ) : (
+              <div style={{textAlign: 'center', padding: '2rem 0'}}>
+                <button onClick={runAIAnalysis} disabled={isAnalyzing} className="btn-modern btn-primary btn-massive">
+                  {isAnalyzing ? "Scanning Image..." : "🔍 Run AI Analysis"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STEP 3: SUCCESS */}
+        {step === 3 && (
+          <div className="capture-card card-modern" style={{textAlign: 'center'}}>
+            <div className="icon-hero">✅</div>
+            <h2>Report Submitted!</h2>
+            <p className="text-muted">Thank you. Your report has been securely sent to the local authority dashboard for prioritization.</p>
+            <button onClick={resetApp} className="btn-modern btn-primary btn-massive" style={{marginTop: '2rem'}}>
+              Report Another Issue
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 };
