@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "./index.css";
 import "./App.css";
 
-const API_BASE = "http://localhost:8000/api/v1"; // Update to your backend URL
+const API_BASE = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
 export default function AdminDashboard() {
   const [view, setView] = useState("map"); // 'map', 'table', 'settings', 'dashcam'
