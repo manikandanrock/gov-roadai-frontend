@@ -96,3 +96,18 @@ body {
 .badge-high { background: var(--danger-bg); color: var(--danger); }
 .badge-medium { background: #fffbeb; color: var(--warning); }
 .badge-low { background: var(--success-bg); color: var(--success); }
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  font-family: inherit;
+  font-size: 1rem;
+  background: var(--bg-app);
+  margin-top: 0.25rem;
+}
+.form-input:focus {
+  outline: 2px solid var(--primary);
+  border-color: transparent;
+}
