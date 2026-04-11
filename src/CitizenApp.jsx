@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import './index.css';
 import './Citizen.css';
 
-const API_BASE = "http://localhost:8000/api/v1"; // Update to your backend URL
+const API_BASE = "https://maniiiikk-roadgovai.hf.space/api/v1";
 
 const CitizenApp = () => {
   const [activeMode, setActiveMode] = useState('photo'); // 'photo' | 'dashcam'
