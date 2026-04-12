@@ -5,6 +5,7 @@ import {
   AlertCircle, X, Square, ArrowLeft, RefreshCw, Info
 } from 'lucide-react';
 import './Citizen.css';
+import './App.css';
 
 const API_BASE = 'https://maniiiikk-roadgovai.hf.space/api/v1';
 
@@ -41,10 +42,10 @@ export default function CitizenApp() {
   // --- Media & Analysis State ---
   const [previewUrl, setPreviewUrl] = useState(null);
   const [analysisData, setAnalysisData] = useState(null);
-  const [evidenceFile, setEvidenceFile] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [serverMessage, setServerMessage] = useState(null); // Tracks duplicate/update messages
+  const [mounted, setMounted] = useState(false);
 
   // --- Refs ---
   const videoRef = useRef(null);
@@ -66,6 +67,10 @@ export default function CitizenApp() {
   }, []);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!gps.lat || !gps.lng) return;
     const fetchLocationName = async () => {
       try {
@@ -74,7 +79,7 @@ export default function CitizenApp() {
         const address = data.address || {};
         const localName = address.suburb || address.neighbourhood || address.city || address.town || address.road;
         if (localName) setLocationName(localName);
-      } catch (err) { console.warn(err); }
+      } catch (error) { console.warn(error); }
     };
     const timeoutId = setTimeout(fetchLocationName, 2000);
     return () => clearTimeout(timeoutId);
@@ -100,7 +105,7 @@ export default function CitizenApp() {
           if (!active) return;
           streamRef.current = stream;
           if (videoRef.current) videoRef.current.srcObject = stream;
-        } catch (err) { if (active) setError('Camera access denied or unavailable.'); }
+        } catch { if (active) setError('Camera access denied or unavailable.'); }
       })();
     } else {
       stopCameraStream();
@@ -133,7 +138,7 @@ export default function CitizenApp() {
   const handleVideoUpload = async () => {
     const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
     const file = new File([blob], 'dashcam_log.webm', { type: 'video/webm' });
-    setEvidenceFile(file);
+
     
     const formData = new FormData();
     formData.append('file', file);
@@ -146,7 +151,7 @@ export default function CitizenApp() {
       const data = await res.json();
       setAnalysisData(data);
       setStep('review');
-    } catch (err) {
+    } catch {
       setError("Video analysis failed. Ensure the server is online.");
       setStep('capture');
     }
@@ -160,7 +165,7 @@ export default function CitizenApp() {
 
     try {
       const compressedImage = await compressImage(file);
-      setEvidenceFile(compressedImage);
+      
       const formData = new FormData();
       formData.append('file', compressedImage);
 
@@ -169,7 +174,7 @@ export default function CitizenApp() {
       setAnalysisData(data);
       if (data.annotated_image) setPreviewUrl(data.annotated_image);
       setStep('review');
-    } catch (err) {
+    } catch {
       setError("AI Engine offline.");
       setStep('capture');
     }
@@ -230,16 +235,16 @@ export default function CitizenApp() {
       }
 
       setStep('success');
-    } catch (err) {
-      console.error(err);
-      setError(err.message);
+    } catch (submitError) {
+      console.error(submitError);
+      setError(submitError.message);
       setStep('review');
     }
   };
 
   const resetApp = () => {
     setStep('capture'); setAnalysisData(null); setPreviewUrl(null); 
-    setEvidenceFile(null); setError(null); setRecordTime(0); setServerMessage(null);
+    setError(null); setRecordTime(0); setServerMessage(null);
   };
 
   const handleBack = () => {
@@ -252,8 +257,11 @@ export default function CitizenApp() {
 
   // --- RENDER ---
   return (
-    <div style={{ height: '100dvh', width: '100vw', display: 'flex', flexDirection: 'column', background: 'var(--background)', color: 'var(--text-main)', overflow: 'hidden' }}>
-      
+    <div className="landing-root citizen-root">
+      <div className="floating-orb orb-1" />
+      <div className="floating-orb orb-2" />
+      <div className="floating-orb orb-3" />
+
       {/* Toast Error Overlay */}
       {error && (
         <div className="error-toast" style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', zIndex: 100 }}>
@@ -262,22 +270,37 @@ export default function CitizenApp() {
         </div>
       )}
 
-      {/* FIXED HEADER */}
-      <header style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface)', borderBottom: '1px solid var(--border)', zIndex: 10 }}>
-        <button className="back-button" onClick={handleBack} style={{ padding: '0.5rem' }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>Field Survey</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: gps.locked ? 'var(--success)' : 'var(--text-muted)' }}>
-            <MapPin size={10} /> {gps.locked ? (locationName || 'GPS Locked') : 'Locating...'}
+      {/* HEADER */}
+      <main className={`landing-body ${mounted ? 'fade-in' : ''}`} role="main">
+        <div className={`landing-header ${mounted ? 'fade-in' : ''}`}>
+          <div className="landing-eyebrow">
+            <span className="landing-eyebrow-dot" />
+            Field Reporter
+          </div>
+
+          <div className="landing-hero">
+            <h1 className="landing-wordmark">
+              Citizen<em>App</em>
+            </h1>
+            <p className="landing-tagline">
+              Capture defects with photo or dashcam analysis and submit them directly to the command center.
+            </p>
           </div>
         </div>
-        <div style={{ width: 36 }}>{/* Spacer for centering */}</div>
-      </header>
 
-      {/* DYNAMIC MAIN CONTENT */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflowY: 'auto' }}>
+        <section className="citizen-content">
+          <div className="citizen-topbar">
+            <button className="back-button" onClick={handleBack}>
+              <ArrowLeft size={20} />
+            </button>
+            <div className="citizen-location">
+              <span className="topbar-title">Field Survey</span>
+              <div className="sync-badge">
+                <MapPin size={12} /> {gps.locked ? (locationName || 'GPS Locked') : 'Locating...'}
+              </div>
+            </div>
+            <div className="topbar-spacer" />
+          </div>
         
         {step === 'capture' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#000' }}>
@@ -359,10 +382,11 @@ export default function CitizenApp() {
             </p>
           </div>
         )}
+        </section>
       </main>
 
       {/* FIXED FOOTER ACTION BAR */}
-      <footer style={{ padding: '1rem', background: 'var(--surface)', borderTop: '1px solid var(--border)', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+      <footer className="citizen-footer">
         
         {step === 'capture' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
