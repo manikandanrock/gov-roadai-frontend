@@ -23,8 +23,9 @@ function LandingPage() {
     setMounted(true);
 
     const now = new Date();
-    const fallbackBase = 320 + now.getDate() * 4 + Math.floor(now.getHours() / 2);
-    const fallbackReports = Math.max(10, Math.round(fallbackBase * 0.04));
+    // Default values if API is empty/fails initially (VISTAS Project defaults)
+    const fallbackBase = 320; 
+    const fallbackReports = 12;
     const fallbackData = {
       defects: fallbackBase,
       accuracy: "98.2%",
@@ -32,8 +33,10 @@ function LandingPage() {
       syncTime: now.toISOString(),
     };
 
+    let pollInterval;
     const controller = new AbortController();
-    const fetchSummary = async () => {
+
+    const fetchSummary = async (isInitial = false) => {
       try {
         const res = await fetch(`${API_BASE}/dashboard-data?budget=1500000`, {
           signal: controller.signal,
@@ -41,40 +44,43 @@ function LandingPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
-        const totalDetected = Number(json.summary?.total_detected);
-        const reports = Math.max(8, Math.round((totalDetected || fallbackBase) * 0.04));
+        // 1. Defects Tracked -> total_detected
+        const totalDetected = Number(json.summary?.total_detected || 0);
+        // 2. Reports Processed -> optimized_repairs (real funded reports)
+        const reportsVal = Number(json.summary?.optimized_repairs || 0);
+        // 3. Model Confidence -> model_accuracy
         const accuracyValue = json.summary?.model_accuracy ?? 98.2;
 
         if (totalDetected > 0) {
           setLiveCount(totalDetected);
           setLiveAccuracy(`${Number(accuracyValue).toFixed(1)}%`);
-          setReportsToday(reports);
+          setReportsToday(reportsVal);
           setLastSync(new Date().toISOString());
-        } else {
+        } else if (isInitial) {
+          // If totally empty, show a plausible seed rather than 0
           setLiveCount(fallbackData.defects);
           setLiveAccuracy(fallbackData.accuracy);
           setReportsToday(fallbackData.reports);
           setLastSync(fallbackData.syncTime);
         }
-      } catch {
-        setLiveCount(fallbackData.defects);
-        setLiveAccuracy(fallbackData.accuracy);
-        setReportsToday(fallbackData.reports);
-        setLastSync(fallbackData.syncTime);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        if (isInitial) {
+          setLiveCount(fallbackData.defects);
+          setLiveAccuracy(fallbackData.accuracy);
+          setReportsToday(fallbackData.reports);
+          setLastSync(fallbackData.syncTime);
+        }
       }
     };
 
-    fetchSummary();
+    fetchSummary(true);
+    pollInterval = setInterval(() => fetchSummary(false), 20000); // 20s poll
 
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveCount(prev => prev + (Math.random() < 0.3 ? Math.floor(Math.random() * 3) + 1 : 1));
-      setReportsToday(prev => prev + 1);
-    }, 6000);
-    return () => clearInterval(interval);
+    return () => {
+      controller.abort();
+      clearInterval(pollInterval);
+    };
   }, []);
 
   return (
