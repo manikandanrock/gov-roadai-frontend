@@ -95,23 +95,32 @@ export default function CitizenApp() {
 
   useEffect(() => {
     let active = true;
-    if (mode === 'dashcam' && step === 'capture') {
+    // Open camera for both photo and dashcam if in capture step
+    if (step === 'capture') {
       (async () => {
         if (!navigator.mediaDevices?.getUserMedia) return setError('Camera access denied.');
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false
+            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, 
+            audio: false
           });
           if (!active) return;
           streamRef.current = stream;
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        } catch { if (active) setError('Camera access denied or unavailable.'); }
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            // Ensure video plays
+            videoRef.current.onloadedmetadata = () => videoRef.current.play();
+          }
+        } catch (err) { 
+          console.error(err);
+          if (active) setError('Camera access denied or unavailable.'); 
+        }
       })();
     } else {
       stopCameraStream();
     }
     return () => { active = false; stopCameraStream(); };
-  }, [mode, step, stopCameraStream]);
+  }, [step, stopCameraStream]);
 
   // --- 3. Capture & Recording Logic ---
   const handleStartRecording = () => {
@@ -157,24 +166,32 @@ export default function CitizenApp() {
     }
   };
 
-  const handlePhotoCapture = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handlePhotoSnap = async () => {
+    if (!videoRef.current || !streamRef.current) return;
+    
     setStep('analyzing');
-    setPreviewUrl(URL.createObjectURL(file));
-
+    
     try {
-      const compressedImage = await compressImage(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0);
       
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      const file = new File([blob], 'snap.jpg', { type: 'image/jpeg' });
+      setPreviewUrl(URL.createObjectURL(file));
+
       const formData = new FormData();
-      formData.append('file', compressedImage);
+      formData.append('file', file);
 
       const res = await fetch(`${API_BASE}/analyze-pothole`, { method: 'POST', body: formData });
       const data = await res.json();
       setAnalysisData(data);
       if (data.annotated_image) setPreviewUrl(data.annotated_image);
       setStep('review');
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("AI Engine offline.");
       setStep('capture');
     }
@@ -270,23 +287,31 @@ export default function CitizenApp() {
         </div>
       )}
 
-      {/* HEADER */}
+      {/* HEADER - Minimized when in capture mode */}
       <main className={`landing-body ${mounted ? 'fade-in' : ''}`} role="main">
-        <div className={`landing-header ${mounted ? 'fade-in' : ''}`}>
-          <div className="landing-eyebrow">
-            <span className="landing-eyebrow-dot" />
-            Field Reporter
+        {step !== 'capture' && (
+          <div className="landing-header">
+            <div className="landing-eyebrow">
+              <span className="landing-eyebrow-dot" />
+              Field Reporter
+            </div>
+            <div className="landing-hero">
+              <h1 className="landing-wordmark">
+                Citizen<em>App</em>
+              </h1>
+              <p className="landing-tagline">
+                Capture defects with photo or dashcam analysis and submit them directly to the command center.
+              </p>
+            </div>
           </div>
+        )}
 
-          <div className="landing-hero">
-            <h1 className="landing-wordmark">
-              Citizen<em>App</em>
-            </h1>
-            <p className="landing-tagline">
-              Capture defects with photo or dashcam analysis and submit them directly to the command center.
-            </p>
-          </div>
-        </div>
+        {step === 'capture' && (
+           <div className="citizen-mini-header">
+             <h1 className="mini-wordmark">Citizen<em>App</em></h1>
+             <div className="mini-badge">LIVE SCANNER</div>
+           </div>
+        )}
 
         <section className="citizen-content">
           <div className="citizen-topbar">
@@ -303,18 +328,31 @@ export default function CitizenApp() {
           </div>
         
         {step === 'capture' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#000' }}>
-            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {mode === 'dashcam' ? (
-                <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'rgba(255,255,255,0.4)', gap: '1rem' }}>
-                  <Camera size={64} strokeWidth={1} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Align defect in frame</span>
+          <div className="viewfinder-container">
+            <div className="viewfinder-main">
+              <video ref={videoRef} autoPlay playsInline muted className="viewfinder-video" />
+              
+              {/* Vision Glass HUD Overlay */}
+              <div className="hud-overlay">
+                <div className="hud-corner top-left" />
+                <div className="hud-corner top-right" />
+                <div className="hud-corner bottom-left" />
+                <div className="hud-corner bottom-right" />
+                <div className="hud-scanline" />
+                
+                <div className="hud-telemetry">
+                  <div className="hud-status">
+                    <span className="status-dot pulsing" /> 
+                    {mode === 'dashcam' ? (isRecording ? 'STREAMING' : 'READY') : 'VISION ACTIVE'}
+                  </div>
+                  <div className="hud-mode-indicator">
+                    {mode.toUpperCase()} MODE
+                  </div>
                 </div>
-              )}
+              </div>
+
               {isRecording && (
-                <div className="rec-overlay" style={{ top: 16, right: 16 }}>
+                <div className="rec-overlay">
                   <span className="rec-dot" /> {formatTime(recordTime)}
                 </div>
               )}
@@ -389,23 +427,34 @@ export default function CitizenApp() {
       <footer className="citizen-footer">
         
         {step === 'capture' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <div className="capture-controls" style={{ padding: 0 }}>
+          <div className="citizen-footer-actions">
+            <div className="capture-controls">
               {mode === 'photo' ? (
-                <label className="shutter-button photo" style={{ width: 72, height: 72 }}>
-                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} hidden />
+                <button className="shutter-button photo" onClick={handlePhotoSnap}>
                   <div className="shutter-inner" />
-                </label>
+                </button>
               ) : (
-                <button className={`shutter-button video ${isRecording ? 'recording' : ''}`} onClick={isRecording ? handleStopRecording : handleStartRecording} style={{ width: 72, height: 72 }}>
-                  <div className="shutter-inner">{isRecording ? <Square size={20} color="white" fill="white" /> : <div className="vid-circle"/>}</div>
+                <button className={`shutter-button video ${isRecording ? 'recording' : ''}`} onClick={isRecording ? handleStopRecording : handleStartRecording}>
+                  <div className="shutter-inner">
+                    {isRecording ? <Square size={20} color="white" fill="white" /> : <div className="vid-circle" />}
+                  </div>
                 </button>
               )}
             </div>
             
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '99px', padding: '4px' }}>
-              <button onClick={() => setMode('photo')} style={{ padding: '8px 20px', borderRadius: '99px', border: 'none', background: mode === 'photo' ? 'var(--surface-alt)' : 'transparent', color: mode === 'photo' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Photo</button>
-              <button onClick={() => setMode('dashcam')} style={{ padding: '8px 20px', borderRadius: '99px', border: 'none', background: mode === 'dashcam' ? 'var(--surface-alt)' : 'transparent', color: mode === 'dashcam' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Dashcam</button>
+            <div className="mode-toggle-group">
+              <button 
+                className={`mode-btn ${mode === 'photo' ? 'active' : ''}`} 
+                onClick={() => setMode('photo')}
+              >
+                <Camera size={16} /> Photo
+              </button>
+              <button 
+                className={`mode-btn ${mode === 'dashcam' ? 'active' : ''}`} 
+                onClick={() => setMode('dashcam')}
+              >
+                <Video size={16} /> Dashcam
+              </button>
             </div>
           </div>
         )}
