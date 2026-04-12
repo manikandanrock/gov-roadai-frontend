@@ -129,6 +129,21 @@ export default function AdminDashboard() {
   const intervalRef = useRef(null);
   useEffect(() => { budgetRef.current = budget; }, [budget]);
 
+  // --- Force Desktop Viewport for Admin ---
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+    const ogContent = meta.getAttribute('content');
+    
+    // Switch to desktop-scale viewport
+    meta.setAttribute('content', 'width=1200, initial-scale=0.1');
+
+    return () => {
+      // Restore mobile-responsible viewport
+      meta.setAttribute('content', ogContent || 'width=device-width, initial-scale=1.0');
+    };
+  }, []);
+
   const showToast = useCallback((msg, type = "info") => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, msg, type }]);
