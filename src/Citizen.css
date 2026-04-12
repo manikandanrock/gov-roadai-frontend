@@ -47,6 +47,57 @@ body {
   margin: 0 auto;
 }
 
+.citizen-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+}
+
+.citizen-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  padding-bottom: 1rem;
+}
+
+.citizen-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.5rem;
+}
+
+.citizen-location {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.topbar-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.topbar-spacer {
+  width: 36px;
+}
+
+.citizen-footer {
+  padding: 1rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
 .error-toast {
   position: fixed;
   top: 1rem;
