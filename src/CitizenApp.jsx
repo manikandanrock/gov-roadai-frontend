@@ -53,6 +53,7 @@ export default function CitizenApp() {
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const timerRef = useRef(null);
+  const fileInputRef = useRef(null); // Added for file upload
   const navigate = useNavigate();
 
   // --- 1. Live GPS Tracking & Reverse Geocoding ---
@@ -148,7 +149,6 @@ export default function CitizenApp() {
     const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
     const file = new File([blob], 'dashcam_log.webm', { type: 'video/webm' });
 
-    
     const formData = new FormData();
     formData.append('file', file);
     
@@ -195,6 +195,35 @@ export default function CitizenApp() {
       setError("AI Engine offline.");
       setStep('capture');
     }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setStep('analyzing');
+    
+    try {
+      // Utilize your existing compression utility
+      const compressedFile = await compressImage(file);
+      setPreviewUrl(URL.createObjectURL(compressedFile));
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+
+      const res = await fetch(`${API_BASE}/analyze-pothole`, { method: 'POST', body: formData });
+      const data = await res.json();
+      setAnalysisData(data);
+      if (data.annotated_image) setPreviewUrl(data.annotated_image);
+      setStep('review');
+    } catch (err) {
+      console.error(err);
+      setError("AI Engine offline or upload failed.");
+      setStep('capture');
+    }
+
+    // Clear the input value so the same file can be uploaded again if needed
+    event.target.value = '';
   };
 
   // --- 4. Final Submission ---
@@ -428,11 +457,32 @@ export default function CitizenApp() {
         
         {step === 'capture' && (
           <div className="citizen-footer-actions">
-            <div className="capture-controls">
+            <div className="capture-controls" style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                accept="image/*" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                onChange={handleFileUpload} 
+              />
+
               {mode === 'photo' ? (
-                <button className="shutter-button photo" onClick={handlePhotoSnap}>
-                  <div className="shutter-inner" />
-                </button>
+                <>
+                  {/* Test Upload Button */}
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ position: 'absolute', left: '-50px', background: 'transparent', border: 'none', color: 'var(--text-muted, white)', cursor: 'pointer', zIndex: 10 }}
+                    title="Upload test image"
+                  >
+                    <UploadCloud size={24} />
+                  </button>
+
+                  <button className="shutter-button photo" onClick={handlePhotoSnap}>
+                    <div className="shutter-inner" />
+                  </button>
+                </>
               ) : (
                 <button className={`shutter-button video ${isRecording ? 'recording' : ''}`} onClick={isRecording ? handleStopRecording : handleStartRecording}>
                   <div className="shutter-inner">
