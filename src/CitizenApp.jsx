@@ -53,7 +53,7 @@ export default function CitizenApp() {
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const timerRef = useRef(null);
-  const fileInputRef = useRef(null); // Added for file upload
+  const fileInputRef = useRef(null); // Reference for laptop image upload
   const navigate = useNavigate();
 
   // --- 1. Live GPS Tracking & Reverse Geocoding ---
@@ -148,7 +148,7 @@ export default function CitizenApp() {
   const handleVideoUpload = async () => {
     const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
     const file = new File([blob], 'dashcam_log.webm', { type: 'video/webm' });
-
+    
     const formData = new FormData();
     formData.append('file', file);
     
@@ -204,7 +204,6 @@ export default function CitizenApp() {
     setStep('analyzing');
     
     try {
-      // Utilize your existing compression utility
       const compressedFile = await compressImage(file);
       setPreviewUrl(URL.createObjectURL(compressedFile));
 
@@ -222,7 +221,7 @@ export default function CitizenApp() {
       setStep('capture');
     }
 
-    // Clear the input value so the same file can be uploaded again if needed
+    // Clear input so same file can be uploaded again if needed
     event.target.value = '';
   };
 
@@ -399,11 +398,25 @@ export default function CitizenApp() {
 
         {step === 'review' && analysisData && (
           <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ width: '100%', aspectRatio: '4/3', borderRadius: '16px', overflow: 'hidden', background: '#000' }}>
+            
+            {/* UPDATED UI: Side-by-Side Image Display */}
+            <div style={{ width: '100%', display: 'flex', gap: '0.5rem', borderRadius: '16px', overflow: 'hidden' }}>
               {mode === 'photo' ? (
-                <img src={previewUrl} alt="AI Processed" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <>
+                  {/* Original Annotated Image */}
+                  <div style={{ flex: 1, aspectRatio: '3/4', background: '#000' }}>
+                    <img src={previewUrl} alt="AI Processed" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  
+                  {/* MiDaS Depth Map */}
+                  {analysisData.depth_image && (
+                    <div style={{ flex: 1, aspectRatio: '3/4', background: '#000' }}>
+                      <img src={analysisData.depth_image} alt="MiDaS Depth Map" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  )}
+                </>
               ) : (
-                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', gap: '0.5rem' }}>
+                <div style={{ width: '100%', aspectRatio: '4/3', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', gap: '0.5rem' }}>
                   <Video size={32} opacity={0.8} />
                   <span style={{ fontSize: '0.85rem' }}>Dashcam Session ({formatTime(recordTime)})</span>
                 </div>
