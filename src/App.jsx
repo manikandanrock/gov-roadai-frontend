@@ -15,7 +15,7 @@ const API_BASE = "https://maniiiikk-roadgovai.hf.space/api/v1";
 function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const [liveCount, setLiveCount] = useState(0);
-  const [liveAccuracy, setLiveAccuracy] = useState("98.2%");
+  const [liveAccuracy, setLiveAccuracy] = useState("94.04%");
   const [reportsToday, setReportsToday] = useState(0);
   const [lastSync, setLastSync] = useState(null);
 
