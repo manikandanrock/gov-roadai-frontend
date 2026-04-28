@@ -397,57 +397,59 @@ export default function CitizenApp() {
         )}
 
         {step === 'review' && analysisData && (
-          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            
-            {/* UPDATED UI: Side-by-Side Image Display */}
-            <div style={{ width: '100%', display: 'flex', gap: '0.5rem', borderRadius: '16px', overflow: 'hidden' }}>
-              {mode === 'photo' ? (
-                <>
-                  {/* Original Annotated Image */}
-                  <div style={{ flex: 1, aspectRatio: '3/4', background: '#000' }}>
-                    <img src={previewUrl} alt="AI Processed" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  
-                  {/* MiDaS Depth Map */}
-                  {analysisData.depth_image && (
-                    <div style={{ flex: 1, aspectRatio: '3/4', background: '#000' }}>
-                      <img src={analysisData.depth_image} alt="MiDaS Depth Map" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div style={{ width: '100%', aspectRatio: '4/3', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', gap: '0.5rem' }}>
-                  <Video size={32} opacity={0.8} />
-                  <span style={{ fontSize: '0.85rem' }}>Dashcam Session ({formatTime(recordTime)})</span>
+        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          
+          {/* UPDATED UI: Responsive Non-Cropped Image Display */}
+          <div className="analysis-container">
+            {mode === 'photo' ? (
+              <>
+                {/* Original Annotated Image */}
+                <div className="analysis-image-wrapper">
+                  <img src={previewUrl} alt="AI Processed" />
                 </div>
-              )}
-            </div>
-
-            <div className="result-card" style={{ padding: '1.25rem', borderRadius: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1rem' }}>{mode === 'photo' ? 'Analysis Results' : 'Processing Summary'}</h3>
-                {mode === 'photo' && (
-                  <span className={`severity-badge ${analysisData.severity?.toLowerCase() || 'medium'}`}>
-                    {analysisData.severity || 'Medium'}
-                  </span>
+                
+                {/* MiDaS Depth Map */}
+                {analysisData.depth_image && (
+                  <div className="analysis-image-wrapper">
+                    <img src={analysisData.depth_image} alt="MiDaS Depth Map" />
+                  </div>
                 )}
+              </>
+            ) : (
+              /* Dashcam mode fallback */
+              <div style={{ width: '100%', aspectRatio: '4/3', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', gap: '0.5rem' }}>
+                <Video size={32} opacity={0.8} />
+                <span style={{ fontSize: '0.85rem' }}>Dashcam Session ({formatTime(recordTime)})</span>
               </div>
-              
-              {mode === 'photo' ? (
-                <>
-                  <div className="data-row"><span>Est. Repair Cost</span> <span className="value">₹{analysisData.total_cost?.toLocaleString() || '0'}</span></div>
-                  <div className="data-row"><span>Defects Found</span> <span className="value">{analysisData.defects_detected || 0}</span></div>
-                  <div className="data-row" style={{ marginBottom: 0 }}><span>Max Depth</span> <span className="value">{analysisData.max_depth || 0} cm</span></div>
-                </>
-              ) : (
-                 <>
-                  <div className="data-row"><span>Status</span> <span className="value text-success">Synced to DB</span></div>
-                  <div className="data-row" style={{ marginBottom: 0 }}><span>Defects Logged</span> <span className="value">{analysisData.logged || 0}</span></div>
-                 </>
+            )}
+          </div>
+      
+          {/* Result Card Details */}
+          <div className="result-card" style={{ padding: '1.25rem', borderRadius: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1rem' }}>{mode === 'photo' ? 'Analysis Results' : 'Processing Summary'}</h3>
+              {mode === 'photo' && (
+                <span className={`severity-badge ${analysisData.severity?.toLowerCase() || 'medium'}`}>
+                  {analysisData.severity || 'Medium'}
+                </span>
               )}
             </div>
+            
+            {mode === 'photo' ? (
+              <>
+                <div className="data-row"><span>Est. Repair Cost</span> <span className="value">₹{analysisData.total_cost?.toLocaleString() || '0'}</span></div>
+                <div className="data-row"><span>Defects Found</span> <span className="value">{analysisData.defects_detected || 0}</span></div>
+                <div className="data-row" style={{ marginBottom: 0 }}><span>Max Depth</span> <span className="value">{analysisData.max_depth || 0} cm</span></div>
+              </>
+            ) : (
+                <>
+                <div className="data-row"><span>Status</span> <span className="value text-success">Synced to DB</span></div>
+                <div className="data-row" style={{ marginBottom: 0 }}><span>Defects Logged</span> <span className="value">{analysisData.logged || 0}</span></div>
+                </>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
         {step === 'success' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
