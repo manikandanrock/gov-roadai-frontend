@@ -28,7 +28,7 @@ function LandingPage() {
     const fallbackReports = 12;
     const fallbackData = {
       defects: fallbackBase,
-      accuracy: "98.2%",
+      accuracy: "94.04%",
       reports: fallbackReports,
       syncTime: now.toISOString(),
     };
