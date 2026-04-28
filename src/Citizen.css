@@ -991,3 +991,33 @@ body {
     font-size: 0.92rem;
   }
 }
+
+/* Container for the AI images */
+.analysis-container {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Individual image wrapper */
+.image-box {
+  flex: 1;
+  background: #000; /* Contrast for depth maps */
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Prevent cropping while staying responsive */
+.image-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* This is critical for non-cropped viewing */
+  display: block;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .analysis-container {
+    flex-direction: column;
+  }
+}
